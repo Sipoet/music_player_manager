@@ -1,10 +1,15 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'package:collection/collection.dart';
+import 'package:flutter/services.dart';
 
 import 'package:intl/intl.dart';
+import 'package:music_player_manager/app_updater.dart';
+import 'package:music_player_manager/clock.dart';
 import 'package:music_player_manager/music_card.dart';
 import 'package:music_player_manager/music_controller.dart';
 import 'package:music_player_manager/music_player.dart';
@@ -20,16 +25,18 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with AppUpdater {
   late final MusicController musicController;
   final currentPlaylist = Playlist(name: 'Main');
-  DateTime datetime = DateTime.now();
-  String get _timeText => DateFormat('d/MM/y hh:mm:ss').format(datetime);
+
   List<Scheduler> schedulers = [];
   List<Playlist> playlists = [];
   List<TaskScheduler> taskSchedulers = [];
+  final _schedulerScrollController = ScrollController();
+  final _musicScrollController = ScrollController();
+  final _playlistScrollController = ScrollController();
   static const labelStyle = TextStyle(fontSize: 18, fontWeight: .bold);
-  // List<Playlist> playslists = [];
+
   void addMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: .audio,
@@ -54,33 +61,52 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   final _formState = GlobalKey<FormState>();
-  void showScheduleForm() {
-    showDialog<Scheduler>(
+  Future<Scheduler?> showScheduleForm(Scheduler scheduler) {
+    return showDialog<Scheduler>(
       context: context,
       builder: (context) {
         final navigator = Navigator.of(context);
-        Music? music;
+        Music? music = scheduler.music;
+        DateTime datetime = DateTime.now();
         DateTime date = DateTime.now();
         TimeOfDay time = TimeOfDay.now();
+
+        DateTimeRange period = DateTimeRange(
+          start: scheduler.startPeriod,
+          end: scheduler.endPeriod,
+        );
+        String? intervalMode;
+        int? intervalNum;
+        int day = 1;
+        Set<int> weeks = {};
+        final mode = scheduler.mode;
+        EnumSchedulerMode schedulerMode = EnumSchedulerMode.fromMode(mode);
+        if (mode is OnceSchedulerMode) {
+          datetime = mode.datetime;
+          date = mode.datetime;
+          time = TimeOfDay.fromDateTime(datetime);
+        } else if (mode is IntervalSchedulerMode) {
+          intervalMode = mode.intervalMode;
+          intervalNum = mode.intervalNum;
+          time = mode.startTime;
+        } else if (mode is WeekSchedulerMode) {
+          weeks = mode.weeks;
+          time = mode.time;
+        } else if (mode is MonthSchedulerMode) {
+          day = mode.day;
+          time = mode.time;
+        }
+        final dateRangeController = TextEditingController(
+          text:
+              "${DateFormat.yMd().format(period.start)} - ${DateFormat.yMd().format(period.end)}",
+        );
         final dateController = TextEditingController(
           text: DateFormat.yMd().format(date),
         );
         final timeController = TextEditingController(
           text: time.format(context),
         );
-        DateTimeRange period = DateTimeRange(
-          start: date.beginningOfDay(),
-          end: date.endOfDay(),
-        );
-        final dateRangeController = TextEditingController(
-          text:
-              "${DateFormat.yMd().format(period.start)} - ${DateFormat.yMd().format(period.end)}",
-        );
-        String? intervalMode;
-        int? intervalNum;
-        Set<int> weeks = {};
 
-        String schedulerMode = 'sekali';
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -123,26 +149,33 @@ class _MyHomePageState extends State<MyHomePage> {
                           Text(music?.title ?? '', overflow: .ellipsis),
                         ],
                       ),
-                      DropdownMenu<String>(
+                      Visibility(
+                        visible: music == null,
+                        child: Text(
+                          'Musik harus dipilih',
+                          style: TextStyle(color: Colors.red.shade300),
+                        ),
+                      ),
+                      DropdownMenu<EnumSchedulerMode>(
                         width: 250,
                         initialSelection: schedulerMode,
                         onSelected: (value) => setState(() {
                           schedulerMode = value ?? schedulerMode;
                         }),
-                        dropdownMenuEntries:
-                            ['sekali', 'interval', 'per minggu', 'per bulan']
-                                .map<DropdownMenuEntry<String>>(
-                                  (value) => DropdownMenuEntry(
-                                    value: value,
-                                    label: value,
-                                  ),
-                                )
-                                .toList(),
+                        dropdownMenuEntries: EnumSchedulerMode.values
+                            .map<DropdownMenuEntry<EnumSchedulerMode>>(
+                              (value) => DropdownMenuEntry(
+                                value: value,
+                                label: value.toString(),
+                              ),
+                            )
+                            .toList(),
                       ),
                       Visibility(
-                        visible: schedulerMode != 'sekali',
+                        visible: schedulerMode != .once,
                         child: TextFormField(
                           keyboardType: .datetime,
+                          readOnly: true,
                           controller: dateRangeController,
                           decoration: InputDecoration(
                             label: Text('Tanggal Aktif'),
@@ -166,7 +199,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                       ),
                       Visibility(
-                        visible: schedulerMode == 'interval',
+                        visible: schedulerMode == .interval,
                         child: Row(
                           children: [
                             DropdownMenu<String>(
@@ -193,6 +226,11 @@ class _MyHomePageState extends State<MyHomePage> {
                                   label: Text('interval'),
                                   border: OutlineInputBorder(),
                                 ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  FilteringTextInputFormatter
+                                      .singleLineFormatter,
+                                ],
                                 keyboardType: .numberWithOptions(signed: false),
                                 initialValue: intervalNum?.toString(),
                                 validator: (value) {
@@ -211,13 +249,11 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                       ),
                       Visibility(
-                        visible: [
-                          'sekali',
-                          'per bulan',
-                        ].contains(schedulerMode),
+                        visible: schedulerMode == .once,
                         child: SizedBox(
                           width: 250,
                           child: TextFormField(
+                            readOnly: true,
                             keyboardType: .datetime,
                             controller: dateController,
                             decoration: InputDecoration(
@@ -248,7 +284,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
 
                       Visibility(
-                        visible: schedulerMode == 'per minggu',
+                        visible: schedulerMode == .perWeek,
                         child: Wrap(
                           children:
                               [
@@ -280,14 +316,43 @@ class _MyHomePageState extends State<MyHomePage> {
                                   .toList(),
                         ),
                       ),
+                      Visibility(
+                        visible: schedulerMode == .perMonth,
+                        child: SizedBox(
+                          width: 120,
+                          child: TextFormField(
+                            decoration: InputDecoration(
+                              label: Text('Setiap Hari'),
+                              border: OutlineInputBorder(),
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              FilteringTextInputFormatter.singleLineFormatter,
+                            ],
+                            keyboardType: .numberWithOptions(signed: false),
+                            initialValue: day.toString(),
+                            validator: (value) {
+                              final valNum = int.tryParse(value ?? '');
+                              if (valNum == null) {
+                                return 'tidak valid';
+                              }
+                              return null;
+                            },
+                            onChanged: (value) => setState(() {
+                              day = int.tryParse(value) ?? day;
+                            }),
+                          ),
+                        ),
+                      ),
                       SizedBox(
                         width: 250,
                         child: TextFormField(
+                          readOnly: true,
                           keyboardType: .datetime,
                           controller: timeController,
                           decoration: InputDecoration(
                             label: Text(
-                              schedulerMode == 'interval'
+                              schedulerMode == .interval
                                   ? 'Mulai Pukul'
                                   : 'Pukul',
                             ),
@@ -300,7 +365,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             ).then((pickDate) {
                               if (pickDate != null) {
                                 time = pickDate;
-                                timeController.text = time.format(context);
+                                timeController.text = time.format24Hour();
                               }
                             });
                           },
@@ -319,48 +384,35 @@ class _MyHomePageState extends State<MyHomePage> {
                     if (_formState.currentState?.validate() != true) {
                       return;
                     }
-                    datetime = datetime.copyWith(
-                      hour: time.hour,
-                      minute: time.minute,
-                      second: 0,
-                      microsecond: 0,
-                      millisecond: 0,
-                    );
-                    Scheduler scheduler;
-                    if (schedulerMode == 'sekali') {
-                      scheduler = Scheduler(
-                        music: music!,
-                        startPeriod: datetime,
-                        endPeriod: datetime,
-                        mode: OnceSchedulerMode(datetime: datetime),
+                    scheduler.music = music;
+                    scheduler.startPeriod = period.start;
+                    scheduler.endPeriod = period.end;
+                    if (schedulerMode == .once) {
+                      datetime = datetime.copyWith(
+                        hour: time.hour,
+                        minute: time.minute,
+                        second: 0,
+                        microsecond: 0,
+                        millisecond: 0,
                       );
-                    } else if (schedulerMode == 'interval') {
+                      scheduler.startPeriod = datetime;
+                      scheduler.endPeriod = datetime;
+                      scheduler.mode = OnceSchedulerMode(datetime: datetime);
+                    } else if (schedulerMode == .interval) {
                       if (intervalNum == null || intervalMode == null) {
                         return;
                       }
-                      scheduler = Scheduler(
-                        music: music!,
-                        startPeriod: period.start,
-                        endPeriod: period.end,
-                        mode: IntervalSchedulerMode(
-                          startTime: time,
-                          intervalMode: intervalMode!,
-                          intervalNum: intervalNum!,
-                        ),
+                      scheduler.mode = IntervalSchedulerMode(
+                        startTime: time,
+                        intervalMode: intervalMode!,
+                        intervalNum: intervalNum!,
                       );
-                    } else if (schedulerMode == 'per bulan') {
-                      scheduler = Scheduler(
-                        music: music!,
-                        startPeriod: period.start,
-                        endPeriod: period.end,
-                        mode: MonthSchedulerMode(time: time, day: datetime.day),
-                      );
+                    } else if (schedulerMode == .perMonth) {
+                      scheduler.mode = MonthSchedulerMode(time: time, day: day);
                     } else {
-                      scheduler = Scheduler(
-                        music: music!,
-                        startPeriod: period.start,
-                        endPeriod: period.end,
-                        mode: WeekSchedulerMode(time: time, weeks: weeks),
+                      scheduler.mode = WeekSchedulerMode(
+                        time: time,
+                        weeks: weeks,
                       );
                     }
                     navigator.pop(scheduler);
@@ -376,14 +428,7 @@ class _MyHomePageState extends State<MyHomePage> {
           },
         );
       },
-    ).then((Scheduler? newScheduler) {
-      if (newScheduler != null) {
-        setState(() {
-          schedulers.insert(0, newScheduler);
-          taskSchedulers.addAll(newScheduler.generateTask());
-        });
-      }
-    });
+    );
   }
 
   @override
@@ -394,23 +439,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
-    final player = AudioPlayer();
+    final player = AudioPlayer(playerId: Random(99999).toString());
 
     // Set the release mode to keep the source after playback has completed.
     player.setReleaseMode(ReleaseMode.stop);
-
+    initVersion();
     musicController = MusicController(player);
-    Stream.periodic(Duration(seconds: 1), (i) {
-      datetime = datetime.add(Duration(seconds: 1));
-      return datetime;
-    }).listen(
-      (date) => setState(() {
-        datetime = date;
-        if (datetime.second == 0) {
-          checkMusicSchedule();
-        }
-      }),
-    );
     super.initState();
   }
 
@@ -425,23 +459,54 @@ class _MyHomePageState extends State<MyHomePage> {
       if (isTaskScheduleEmpty(taskScheduler.scheduler)) {
         setState(() {
           final scheduler = taskScheduler.scheduler;
-          schedulers.remove(scheduler);
-          scheduler.isExpired = true;
-          schedulers.add(scheduler);
+          expiredScheduler(scheduler);
         });
       }
     }
   }
 
+  void expiredScheduler(Scheduler scheduler) {
+    schedulers.remove(scheduler);
+    scheduler.isExpired = true;
+    schedulers.add(scheduler);
+  }
+
+  void removeTaskScheduler(Scheduler scheduler) {
+    taskSchedulers.removeWhere((e) => e.scheduler == scheduler);
+  }
+
   bool isTaskScheduleEmpty(Scheduler scheduler) =>
       taskSchedulers.where((e) => e.scheduler == scheduler).isEmpty;
-
+  final _menuController = MenuController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        leading: MenuAnchor(
+          controller: _menuController,
+          menuChildren: [
+            MenuItemButton(
+              child: Text('Cek Versi Terbaru'),
+              onPressed: () {
+                checkUpdate();
+                _menuController.close();
+              },
+            ),
+            MenuItemButton(
+              child: Text('Tentang'),
+              onPressed: () {
+                showVersion();
+                _menuController.close();
+              },
+            ),
+          ],
 
+          child: IconButton(
+            onPressed: () => _menuController.open(),
+            icon: Icon(Icons.menu),
+          ),
+        ),
         title: Text(widget.title),
       ),
       body: Center(
@@ -477,16 +542,22 @@ class _MyHomePageState extends State<MyHomePage> {
                     const Divider(),
                     SizedBox(
                       height: 350,
-                      child: ListView.separated(
-                        itemCount: currentPlaylist.musics.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) => MusicCard(
-                          controller: musicController,
-                          music: currentPlaylist.musics[index],
-                          onPlayPressed: (music, controller) => setState(() {
-                            currentPlaylist.currentIndex = index;
-                          }),
+                      child: Scrollbar(
+                        controller: _musicScrollController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        child: ListView.separated(
+                          controller: _musicScrollController,
+                          itemCount: currentPlaylist.musics.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) => MusicCard(
+                            controller: musicController,
+                            music: currentPlaylist.musics[index],
+                            onPlayPressed: (music, controller) => setState(() {
+                              currentPlaylist.currentIndex = index;
+                            }),
+                          ),
                         ),
                       ),
                     ),
@@ -529,20 +600,32 @@ class _MyHomePageState extends State<MyHomePage> {
                         const Divider(),
                         SizedBox(
                           height: 200,
-                          child: ListView(
-                            children: playlists
-                                .map<PlaylistCard>(
-                                  (playlist) =>
-                                      PlaylistCard(playlist: playlist),
-                                )
-                                .toList(),
+                          child: Scrollbar(
+                            thumbVisibility: true,
+                            trackVisibility: true,
+                            controller: _playlistScrollController,
+                            child: ListView(
+                              controller: _playlistScrollController,
+                              children: playlists
+                                  .map<PlaylistCard>(
+                                    (playlist) =>
+                                        PlaylistCard(playlist: playlist),
+                                  )
+                                  .toList(),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                   SizedBox(height: 5),
-                  Text('Time: $_timeText'),
+                  Clock(
+                    onTimeChanged: (datetime) {
+                      if (datetime.second == 0) {
+                        checkMusicSchedule();
+                      }
+                    },
+                  ),
                   SizedBox(height: 5),
                   Container(
                     height: 270,
@@ -560,7 +643,27 @@ class _MyHomePageState extends State<MyHomePage> {
                             children: [
                               Text('Scheduler', style: labelStyle),
                               IconButton(
-                                onPressed: showScheduleForm,
+                                onPressed: () {
+                                  showScheduleForm(
+                                    Scheduler(
+                                      startPeriod: DateTime.now()
+                                          .beginningOfDay(),
+                                      endPeriod: DateTime.now().endOfDay(),
+                                      mode: OnceSchedulerMode(
+                                        datetime: DateTime.now(),
+                                      ),
+                                    ),
+                                  ).then((Scheduler? newScheduler) {
+                                    if (newScheduler != null) {
+                                      setState(() {
+                                        schedulers.insert(0, newScheduler);
+                                        taskSchedulers.addAll(
+                                          newScheduler.generateTask(),
+                                        );
+                                      });
+                                    }
+                                  });
+                                },
                                 icon: Icon(Icons.add),
                               ),
                             ],
@@ -569,13 +672,44 @@ class _MyHomePageState extends State<MyHomePage> {
                         const Divider(),
                         SizedBox(
                           height: 200,
-                          child: ListView(
-                            children: schedulers
-                                .map<SchedulerCard>(
-                                  (scheduler) =>
-                                      SchedulerCard(scheduler: scheduler),
-                                )
-                                .toList(),
+                          child: Scrollbar(
+                            thumbVisibility: true,
+                            trackVisibility: true,
+                            controller: _schedulerScrollController,
+                            child: ListView(
+                              controller: _schedulerScrollController,
+                              children: schedulers
+                                  .map<SchedulerCard>(
+                                    (scheduler) => SchedulerCard(
+                                      scheduler: scheduler,
+                                      onEdit: (scheduler) {
+                                        final index = schedulers.indexOf(
+                                          scheduler,
+                                        );
+                                        showScheduleForm(scheduler).then((
+                                          Scheduler? newScheduler,
+                                        ) {
+                                          if (newScheduler != null) {
+                                            setState(() {
+                                              schedulers.setAll(index, [
+                                                newScheduler,
+                                              ]);
+                                              removeTaskScheduler(scheduler);
+                                              taskSchedulers.addAll(
+                                                scheduler.generateTask(),
+                                              );
+                                            });
+                                          }
+                                        });
+                                      },
+                                      onDelete: (scheduler) => setState(() {
+                                        schedulers.remove(scheduler);
+                                        removeTaskScheduler(scheduler);
+                                      }),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
                           ),
                         ),
                       ],
@@ -596,4 +730,39 @@ extension DateTimeHelper on DateTime {
       copyWith(hour: 0, microsecond: 0, minute: 0, second: 0, millisecond: 0);
   DateTime endOfDay() =>
       copyWith(hour: 23, minute: 59, second: 59, millisecond: 999);
+}
+
+enum EnumSchedulerMode {
+  once,
+  interval,
+  perWeek,
+  perMonth;
+
+  @override
+  String toString() {
+    switch (this) {
+      case once:
+        return 'sekali';
+      case interval:
+        return 'interval';
+      case perWeek:
+        return 'per minggu';
+      case perMonth:
+        return 'per bulan';
+    }
+  }
+
+  static EnumSchedulerMode fromMode(SchedulerMode mode) {
+    if (mode is OnceSchedulerMode) {
+      return once;
+    } else if (mode is IntervalSchedulerMode) {
+      return interval;
+    } else if (mode is WeekSchedulerMode) {
+      return perWeek;
+    } else if (mode is MonthSchedulerMode) {
+      return perMonth;
+    } else {
+      return once;
+    }
+  }
 }

@@ -148,12 +148,12 @@ class Scheduler {
   DateTime startPeriod;
   DateTime endPeriod;
   SchedulerMode mode;
-  Music music;
+  Music? music;
   bool isExpired = false;
   Scheduler({
     required this.startPeriod,
     required this.endPeriod,
-    required this.music,
+    this.music,
     required this.mode,
   });
 
@@ -169,5 +169,5 @@ class TaskScheduler {
 
   TaskScheduler({required this.datetime, required this.scheduler});
 
-  Music get music => scheduler.music;
+  Music get music => scheduler.music!;
 }
