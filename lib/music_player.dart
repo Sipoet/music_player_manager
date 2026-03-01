@@ -9,10 +9,12 @@ import 'package:music_player_manager/music_controller.dart';
 class MusicPlayer extends StatefulWidget {
   final MusicController controller;
   final Playlist playlist;
+  final RepeatMode repeatMode;
   const MusicPlayer({
     super.key,
     required this.controller,
     required this.playlist,
+    this.repeatMode = .all,
   });
 
   @override
@@ -24,17 +26,20 @@ class _MusicPlayerState extends State<MusicPlayer> {
   AudioPlayer get player => widget.controller.player;
   Music? get music => widget.controller.currentMusic;
   Playlist get playlist => widget.playlist;
+  late RepeatMode repeatMode;
   Duration? _duration;
   Duration? _position;
   StreamSubscription? _durationSubscription;
   StreamSubscription? _positionSubscription;
   StreamSubscription? _playerCompleteSubscription;
   StreamSubscription? _playerStateChangeSubscription;
+
   String get _durationText => _duration?.toString().split('.').first ?? '';
 
   String get _positionText => _position?.toString().split('.').first ?? '';
   @override
   void initState() {
+    repeatMode = widget.repeatMode;
     controller.addListener(() {
       setState(() {});
     });
@@ -82,9 +87,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
     _playerCompleteSubscription = player.onPlayerComplete.listen((event) {
       setState(() {
         _position = Duration.zero;
-        if (playlist.hasNext) {
-          playlist.next(controller);
-        }
+        nextMusic();
       });
     });
 
@@ -93,6 +96,33 @@ class _MusicPlayerState extends State<MusicPlayer> {
     ) {
       setState(() {});
     });
+  }
+
+  void toggleRepeat() {
+    final values = RepeatMode.values;
+    int index = values.indexOf(repeatMode) + 1;
+    if (index >= values.length) {
+      index = 0;
+    }
+    repeatMode = values[index];
+  }
+
+  void nextMusic() {
+    if (repeatMode == .disabled) {
+      if (playlist.hasNext) {
+        playlist.next(controller);
+      }
+      return;
+    } else if (repeatMode == .all) {
+      if (playlist.hasNext) {
+        playlist.next(controller);
+      } else {
+        playlist.currentIndex = 0;
+        controller.play(playlist.currentMusic);
+      }
+    } else if (repeatMode == .one) {
+      controller.play(playlist.currentMusic);
+    }
   }
 
   @override
@@ -125,16 +155,24 @@ class _MusicPlayerState extends State<MusicPlayer> {
               icon: Icon(Icons.stop),
             ),
             IconButton(
-              onPressed: playlist.hasNext
-                  ? () => playlist.next(controller)
-                  : null,
+              onPressed: !playlist.hasNext && repeatMode == .disabled
+                  ? null
+                  : () {
+                      playlist.next(controller);
+                    },
               icon: Icon(Icons.skip_next),
+            ),
+            IconButton(
+              onPressed: () => setState(() {
+                toggleRepeat();
+              }),
+              icon: repeatMode.icon,
             ),
           ],
         ),
         Slider(
           onChanged: (value) async {
-            final duration = await controller.player.getDuration();
+            final duration = await player.getDuration();
             if (duration == null) {
               return;
             }
@@ -168,5 +206,25 @@ class _MusicPlayerState extends State<MusicPlayer> {
         ),
       ],
     );
+  }
+}
+
+enum RepeatMode {
+  disabled,
+  one,
+  all;
+
+  @override
+  String toString() => super.toString().split('.').last;
+
+  Icon get icon {
+    switch (this) {
+      case disabled:
+        return Icon(Icons.repeat, color: Colors.grey);
+      case one:
+        return Icon(Icons.repeat_one);
+      case all:
+        return Icon(Icons.repeat);
+    }
   }
 }

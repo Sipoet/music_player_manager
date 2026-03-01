@@ -23,6 +23,9 @@ class MusicController extends ChangeNotifier {
 
   Future<void> play(Music music) async {
     currentMusic = music;
+    if (isPlaying) {
+      await player.stop();
+    }
     await player.play(music.source, position: Duration.zero);
     notifyListeners();
     return;

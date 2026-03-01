@@ -10,6 +10,8 @@ class Playlist {
 
   bool get hasNext => currentIndex + 1 < musics.length;
   bool get hasPrevious => currentIndex > 0;
+  bool isShuffle = false;
+
   Future<Music?> next(MusicController controller) async {
     if (!hasNext) {
       return null;
