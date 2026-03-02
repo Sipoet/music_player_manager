@@ -4,10 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
-import 'package:collection/collection.dart';
-import 'package:flutter/services.dart';
-
-import 'package:intl/intl.dart';
 import 'package:music_player_manager/app_updater.dart';
 import 'package:music_player_manager/clock.dart';
 import 'package:music_player_manager/music_card.dart';
@@ -15,6 +11,7 @@ import 'package:music_player_manager/music_controller.dart';
 import 'package:music_player_manager/music_player.dart';
 import 'package:music_player_manager/playlist_card.dart';
 import 'package:music_player_manager/scheduler_card.dart';
+import 'package:music_player_manager/scheduler_form_dialog.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -60,372 +57,15 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
     });
   }
 
-  final _formState = GlobalKey<FormState>();
   Future<Scheduler?> showScheduleForm(Scheduler scheduler) {
     return showDialog<Scheduler>(
       context: context,
       builder: (context) {
         final navigator = Navigator.of(context);
-        Music? music = scheduler.music;
-        DateTime datetime = DateTime.now();
-        DateTime date = DateTime.now();
-        TimeOfDay time = TimeOfDay.now();
-
-        DateTimeRange period = DateTimeRange(
-          start: scheduler.startPeriod,
-          end: scheduler.endPeriod,
-        );
-        String? intervalMode;
-        int? intervalNum;
-        int day = 1;
-        Set<int> weeks = {};
-        final mode = scheduler.mode;
-        EnumSchedulerMode schedulerMode = EnumSchedulerMode.fromMode(mode);
-        if (mode is OnceSchedulerMode) {
-          datetime = mode.datetime;
-          date = mode.datetime;
-          time = TimeOfDay.fromDateTime(datetime);
-        } else if (mode is IntervalSchedulerMode) {
-          intervalMode = mode.intervalMode;
-          intervalNum = mode.intervalNum;
-          time = mode.startTime;
-        } else if (mode is WeekSchedulerMode) {
-          weeks = mode.weeks;
-          time = mode.time;
-        } else if (mode is MonthSchedulerMode) {
-          day = mode.day;
-          time = mode.time;
-        }
-        final dateRangeController = TextEditingController(
-          text:
-              "${DateFormat.yMd().format(period.start)} - ${DateFormat.yMd().format(period.end)}",
-        );
-        final dateController = TextEditingController(
-          text: DateFormat.yMd().format(date),
-        );
-        final timeController = TextEditingController(
-          text: time.format(context),
-        );
-
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('Schedule'),
-              content: SizedBox(
-                width: 320,
-                child: Form(
-                  key: _formState,
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    spacing: 10,
-                    children: [
-                      Row(
-                        spacing: 10,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () async {
-                              FilePickerResult? result = await FilePicker
-                                  .platform
-                                  .pickFiles(
-                                    type: .audio,
-                                    withReadStream: true,
-                                    withData: true,
-                                    dialogTitle: 'pilih musik',
-                                    allowMultiple: false,
-                                  );
-                              if (result == null) {
-                                return;
-                              }
-                              final file = result.files.first;
-                              setState(() {
-                                music = Music(
-                                  source: DeviceFileSource(file.path!),
-                                  title: file.name,
-                                );
-                              });
-                            },
-                            child: Text('pilih musik'),
-                          ),
-                          Text(music?.title ?? '', overflow: .ellipsis),
-                        ],
-                      ),
-                      Visibility(
-                        visible: music == null,
-                        child: Text(
-                          'Musik harus dipilih',
-                          style: TextStyle(color: Colors.red.shade300),
-                        ),
-                      ),
-                      DropdownMenu<EnumSchedulerMode>(
-                        width: 250,
-                        initialSelection: schedulerMode,
-                        onSelected: (value) => setState(() {
-                          schedulerMode = value ?? schedulerMode;
-                        }),
-                        dropdownMenuEntries: EnumSchedulerMode.values
-                            .map<DropdownMenuEntry<EnumSchedulerMode>>(
-                              (value) => DropdownMenuEntry(
-                                value: value,
-                                label: value.toString(),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                      Visibility(
-                        visible: schedulerMode != .once,
-                        child: TextFormField(
-                          keyboardType: .datetime,
-                          readOnly: true,
-                          controller: dateRangeController,
-                          decoration: InputDecoration(
-                            label: Text('Tanggal Aktif'),
-                            border: OutlineInputBorder(),
-                          ),
-                          onTap: () {
-                            showDateRangePicker(
-                              context: context,
-                              initialDateRange: period,
-                              firstDate: DateTime.now(),
-                              currentDate: date,
-                              lastDate: DateTime(9999),
-                            ).then((pickDate) {
-                              if (pickDate != null) {
-                                period = pickDate;
-                                dateController.text =
-                                    "${DateFormat.yMd().format(period.start)} -${DateFormat.yMd().format(period.end)} ";
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                      Visibility(
-                        visible: schedulerMode == .interval,
-                        child: Row(
-                          children: [
-                            DropdownMenu<String>(
-                              label: Text('Diulang Setiap'),
-                              width: 180,
-                              initialSelection: intervalMode,
-                              onSelected: (value) => setState(() {
-                                intervalMode = value;
-                              }),
-                              enableFilter: true,
-                              dropdownMenuEntries: ['jam', 'menit', 'hari']
-                                  .map<DropdownMenuEntry<String>>(
-                                    (value) => DropdownMenuEntry(
-                                      value: value,
-                                      label: value,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                            SizedBox(
-                              width: 120,
-                              child: TextFormField(
-                                decoration: InputDecoration(
-                                  label: Text('interval'),
-                                  border: OutlineInputBorder(),
-                                ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  FilteringTextInputFormatter
-                                      .singleLineFormatter,
-                                ],
-                                keyboardType: .numberWithOptions(signed: false),
-                                initialValue: intervalNum?.toString(),
-                                validator: (value) {
-                                  final valNum = int.tryParse(value ?? '');
-                                  if (valNum == null) {
-                                    return 'tidak valid';
-                                  }
-                                  return null;
-                                },
-                                onChanged: (value) => setState(() {
-                                  intervalNum = int.tryParse(value);
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Visibility(
-                        visible: schedulerMode == .once,
-                        child: SizedBox(
-                          width: 250,
-                          child: TextFormField(
-                            readOnly: true,
-                            keyboardType: .datetime,
-                            controller: dateController,
-                            decoration: InputDecoration(
-                              label: Text('Tanggal'),
-                              border: OutlineInputBorder(),
-                            ),
-                            onTap: () {
-                              showDatePicker(
-                                context: context,
-                                firstDate: DateTime.now(),
-                                currentDate: date,
-                                lastDate: DateTime(9999),
-                              ).then((pickDate) {
-                                if (pickDate != null) {
-                                  date = date.copyWith(
-                                    day: pickDate.day,
-                                    month: pickDate.month,
-                                    year: pickDate.year,
-                                  );
-                                  dateController.text = DateFormat.yMd().format(
-                                    date,
-                                  );
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-
-                      Visibility(
-                        visible: schedulerMode == .perWeek,
-                        child: Wrap(
-                          children:
-                              [
-                                    'Senin',
-                                    'Selasa',
-                                    'Rabu',
-                                    'Kamis',
-                                    'Jumat',
-                                    'Sabtu',
-                                    'Minggu',
-                                  ]
-                                  .mapIndexed(
-                                    (index, value) => SizedBox(
-                                      width: 155,
-                                      child: CheckboxListTile(
-                                        title: Text(value),
-                                        titleAlignment: .center,
-                                        value: weeks.contains(index + 1),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            value == true
-                                                ? weeks.add(index + 1)
-                                                : weeks.remove(index + 1);
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      ),
-                      Visibility(
-                        visible: schedulerMode == .perMonth,
-                        child: SizedBox(
-                          width: 120,
-                          child: TextFormField(
-                            decoration: InputDecoration(
-                              label: Text('Setiap Hari'),
-                              border: OutlineInputBorder(),
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              FilteringTextInputFormatter.singleLineFormatter,
-                            ],
-                            keyboardType: .numberWithOptions(signed: false),
-                            initialValue: day.toString(),
-                            validator: (value) {
-                              final valNum = int.tryParse(value ?? '');
-                              if (valNum == null) {
-                                return 'tidak valid';
-                              }
-                              return null;
-                            },
-                            onChanged: (value) => setState(() {
-                              day = int.tryParse(value) ?? day;
-                            }),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 250,
-                        child: TextFormField(
-                          readOnly: true,
-                          keyboardType: .datetime,
-                          controller: timeController,
-                          decoration: InputDecoration(
-                            label: Text(
-                              schedulerMode == .interval
-                                  ? 'Mulai Pukul'
-                                  : 'Pukul',
-                            ),
-                            border: OutlineInputBorder(),
-                          ),
-                          onTap: () {
-                            showTimePicker(
-                              context: context,
-                              initialTime: time,
-                            ).then((pickDate) {
-                              if (pickDate != null) {
-                                time = pickDate;
-                                timeController.text = time.format24Hour();
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    if (music == null) {
-                      return;
-                    }
-                    if (_formState.currentState?.validate() != true) {
-                      return;
-                    }
-                    scheduler.music = music;
-                    scheduler.startPeriod = period.start;
-                    scheduler.endPeriod = period.end;
-                    if (schedulerMode == .once) {
-                      datetime = datetime.copyWith(
-                        hour: time.hour,
-                        minute: time.minute,
-                        second: 0,
-                        microsecond: 0,
-                        millisecond: 0,
-                      );
-                      scheduler.startPeriod = datetime;
-                      scheduler.endPeriod = datetime;
-                      scheduler.mode = OnceSchedulerMode(datetime: datetime);
-                    } else if (schedulerMode == .interval) {
-                      if (intervalNum == null || intervalMode == null) {
-                        return;
-                      }
-                      scheduler.mode = IntervalSchedulerMode(
-                        startTime: time,
-                        intervalMode: intervalMode!,
-                        intervalNum: intervalNum!,
-                      );
-                    } else if (schedulerMode == .perMonth) {
-                      scheduler.mode = MonthSchedulerMode(time: time, day: day);
-                    } else {
-                      scheduler.mode = WeekSchedulerMode(
-                        time: time,
-                        weeks: weeks,
-                      );
-                    }
-                    navigator.pop(scheduler);
-                  },
-                  child: Text('Tambah'),
-                ),
-                ElevatedButton(
-                  onPressed: () => navigator.pop(null),
-                  child: Text('batal'),
-                ),
-              ],
-            );
-          },
+        return SchedulerFormDialog(
+          scheduler: scheduler,
+          onSaved: (scheduler) => navigator.pop(scheduler),
+          onCancel: (scheduler) => navigator.pop(null),
         );
       },
     );
@@ -449,19 +89,20 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
   }
 
   void checkMusicSchedule() {
-    for (final (int index, TaskScheduler taskScheduler)
-        in taskSchedulers.indexed) {
+    for (final taskScheduler in taskSchedulers) {
       if (taskScheduler.datetime.isAfter(DateTime.now())) {
         continue;
       }
       musicController.play(taskScheduler.music);
-      taskSchedulers.removeAt(index);
-      if (isTaskScheduleEmpty(taskScheduler.scheduler)) {
-        setState(() {
-          final scheduler = taskScheduler.scheduler;
-          expiredScheduler(scheduler);
-        });
-      }
+      taskSchedulers.remove(taskScheduler);
+      Future.delayed(Duration(seconds: 10), () {
+        if (isTaskScheduleEmpty(taskScheduler.scheduler)) {
+          setState(() {
+            final scheduler = taskScheduler.scheduler;
+            expiredScheduler(scheduler);
+          });
+        }
+      });
     }
   }
 
@@ -517,9 +158,9 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
             Padding(
               padding: const EdgeInsets.all(5.0),
               child: Container(
-                height: 600,
                 decoration: BoxDecoration(border: BoxBorder.all()),
                 child: Column(
+                  mainAxisSize: .min,
                   mainAxisAlignment: .start,
                   children: [
                     Padding(
@@ -541,7 +182,7 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
                     ),
                     const Divider(),
                     SizedBox(
-                      height: 350,
+                      height: 250,
                       child: Scrollbar(
                         controller: _musicScrollController,
                         thumbVisibility: true,
@@ -562,9 +203,11 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
                       ),
                     ),
                     const Divider(),
-                    MusicPlayer(
-                      controller: musicController,
-                      playlist: currentPlaylist,
+                    Flexible(
+                      child: MusicPlayer(
+                        controller: musicController,
+                        playlist: currentPlaylist,
+                      ),
                     ),
                   ],
                 ),
@@ -725,44 +368,31 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
   }
 }
 
-extension DateTimeHelper on DateTime {
-  DateTime beginningOfDay() =>
-      copyWith(hour: 0, microsecond: 0, minute: 0, second: 0, millisecond: 0);
-  DateTime endOfDay() =>
-      copyWith(hour: 23, minute: 59, second: 59, millisecond: 999);
-}
-
-enum EnumSchedulerMode {
-  once,
-  interval,
-  perWeek,
-  perMonth;
+class TestForm extends StatefulWidget {
+  const TestForm({super.key});
 
   @override
-  String toString() {
-    switch (this) {
-      case once:
-        return 'sekali';
-      case interval:
-        return 'interval';
-      case perWeek:
-        return 'per minggu';
-      case perMonth:
-        return 'per bulan';
-    }
+  State<TestForm> createState() => _TestFormState();
+}
+
+class _TestFormState extends State<TestForm>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this);
   }
 
-  static EnumSchedulerMode fromMode(SchedulerMode mode) {
-    if (mode is OnceSchedulerMode) {
-      return once;
-    } else if (mode is IntervalSchedulerMode) {
-      return interval;
-    } else if (mode is WeekSchedulerMode) {
-      return perWeek;
-    } else if (mode is MonthSchedulerMode) {
-      return perMonth;
-    } else {
-      return once;
-    }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const AlertDialog();
   }
 }

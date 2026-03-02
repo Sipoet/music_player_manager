@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:music_player_manager/models/music.dart';
@@ -12,6 +13,9 @@ class OnceSchedulerMode extends SchedulerMode {
   OnceSchedulerMode({required this.datetime});
   @override
   List<TaskScheduler> generateTask(Scheduler scheduler) {
+    if (datetime.isBefore(DateTime.now())) {
+      return [];
+    }
     return [TaskScheduler(datetime: datetime, scheduler: scheduler)];
   }
 
@@ -42,7 +46,8 @@ class IntervalSchedulerMode extends SchedulerMode {
   @override
   List<TaskScheduler> generateTask(Scheduler scheduler) {
     List<TaskScheduler> result = [];
-    DateTime startPeriod = scheduler.startPeriod.copyWith(
+    final now = DateTime.now();
+    DateTime startPeriod = [scheduler.startPeriod, now].max.copyWith(
       hour: startTime.hour,
       minute: startTime.minute,
       second: 0,
@@ -50,6 +55,10 @@ class IntervalSchedulerMode extends SchedulerMode {
       millisecond: 0,
     );
     while (startPeriod.isBefore(scheduler.endPeriod)) {
+      if (startPeriod.isBefore(now)) {
+        startPeriod = startPeriod.add(interval);
+        continue;
+      }
       result.add(TaskScheduler(datetime: startPeriod, scheduler: scheduler));
       startPeriod = startPeriod.add(interval);
     }
@@ -68,13 +77,17 @@ class WeekSchedulerMode extends SchedulerMode {
   @override
   List<TaskScheduler> generateTask(Scheduler scheduler) {
     List<TaskScheduler> result = [];
-    DateTime startPeriod = scheduler.startPeriod.copyWith(
+    final now = DateTime.now();
+    DateTime startPeriod = [scheduler.startPeriod, now].max.copyWith(
       hour: time.hour,
       minute: time.minute,
       second: 0,
       microsecond: 0,
       millisecond: 0,
     );
+    if (startPeriod.isBefore(now)) {
+      startPeriod = startPeriod.add(Duration(days: 1));
+    }
     while (startPeriod.isBefore(scheduler.endPeriod)) {
       if (weeks.contains(startPeriod.weekday)) {
         result.add(TaskScheduler(datetime: startPeriod, scheduler: scheduler));
@@ -111,7 +124,8 @@ class MonthSchedulerMode extends SchedulerMode {
   @override
   List<TaskScheduler> generateTask(Scheduler scheduler) {
     List<TaskScheduler> result = [];
-    DateTime startPeriod = scheduler.startPeriod.copyWith(
+    final now = DateTime.now();
+    DateTime startPeriod = [scheduler.startPeriod, now].max.copyWith(
       day: day,
       hour: time.hour,
       minute: time.minute,
@@ -119,12 +133,13 @@ class MonthSchedulerMode extends SchedulerMode {
       microsecond: 0,
       millisecond: 0,
     );
-    if (startPeriod.isBefore(scheduler.startPeriod)) {
+    if (startPeriod.isBefore(now)) {
       startPeriod = startPeriod
-          .copyWith(day: 4)
+          .copyWith(day: 4, month: now.month, year: now.year)
           .add(Duration(days: 28))
           .copyWith(day: day);
     }
+
     while (startPeriod.isBefore(scheduler.endPeriod)) {
       result.add(TaskScheduler(datetime: startPeriod, scheduler: scheduler));
       startPeriod = startPeriod
@@ -144,15 +159,21 @@ extension TimeOfDayFormat on TimeOfDay {
       '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }
 
+enum ChangeMode { afterPlayedMusic, faded }
+
 class Scheduler {
   DateTime startPeriod;
   DateTime endPeriod;
   SchedulerMode mode;
+  Duration? changeDelay;
+  ChangeMode changeMode;
   Music? music;
   bool isExpired = false;
   Scheduler({
     required this.startPeriod,
     required this.endPeriod,
+    this.changeDelay,
+    this.changeMode = .faded,
     this.music,
     required this.mode,
   });
@@ -170,4 +191,11 @@ class TaskScheduler {
   TaskScheduler({required this.datetime, required this.scheduler});
 
   Music get music => scheduler.music!;
+}
+
+extension DateTimeHelper on DateTime {
+  DateTime beginningOfDay() =>
+      copyWith(hour: 0, microsecond: 0, minute: 0, second: 0, millisecond: 0);
+  DateTime endOfDay() =>
+      copyWith(hour: 23, minute: 59, second: 59, millisecond: 999);
 }
