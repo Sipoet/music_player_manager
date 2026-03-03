@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:music_player_manager/models/music.dart';
+import 'package:uuid/uuid.dart';
 
 abstract class SchedulerMode {
   List<TaskScheduler> generateTask(Scheduler scheduler);
@@ -16,11 +17,11 @@ class OnceSchedulerMode extends SchedulerMode {
     if (datetime.isBefore(DateTime.now())) {
       return [];
     }
-    return [TaskScheduler(datetime: datetime, scheduler: scheduler)];
+    return [TaskScheduler(datetime: datetime, schedulerId: scheduler.id)];
   }
 
   @override
-  String get description => DateFormat('dd/MM/yy hh:mm').format(datetime);
+  String get description => DateFormat('dd/MM/yyyy H:mm').format(datetime);
 }
 
 class IntervalSchedulerMode extends SchedulerMode {
@@ -59,7 +60,9 @@ class IntervalSchedulerMode extends SchedulerMode {
         startPeriod = startPeriod.add(interval);
         continue;
       }
-      result.add(TaskScheduler(datetime: startPeriod, scheduler: scheduler));
+      result.add(
+        TaskScheduler(datetime: startPeriod, schedulerId: scheduler.id),
+      );
       startPeriod = startPeriod.add(interval);
     }
     return result;
@@ -90,7 +93,9 @@ class WeekSchedulerMode extends SchedulerMode {
     }
     while (startPeriod.isBefore(scheduler.endPeriod)) {
       if (weeks.contains(startPeriod.weekday)) {
-        result.add(TaskScheduler(datetime: startPeriod, scheduler: scheduler));
+        result.add(
+          TaskScheduler(datetime: startPeriod, schedulerId: scheduler.id),
+        );
       }
       startPeriod = startPeriod.add(Duration(days: 1));
     }
@@ -141,7 +146,9 @@ class MonthSchedulerMode extends SchedulerMode {
     }
 
     while (startPeriod.isBefore(scheduler.endPeriod)) {
-      result.add(TaskScheduler(datetime: startPeriod, scheduler: scheduler));
+      result.add(
+        TaskScheduler(datetime: startPeriod, schedulerId: scheduler.id),
+      );
       startPeriod = startPeriod
           .copyWith(day: 4)
           .add(Duration(days: 28))
@@ -159,9 +166,20 @@ extension TimeOfDayFormat on TimeOfDay {
       '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }
 
-enum ChangeMode { afterPlayedMusic, faded }
+enum ChangeMode {
+  musicCompleted,
+  faded;
+
+  @override
+  String toString() => super.toString().split('.').last;
+  String humanize() =>
+      this == musicCompleted ? 'Tunggu Musik Selesai' : 'langsung';
+}
+
+final uuid = Uuid();
 
 class Scheduler {
+  String id;
   DateTime startPeriod;
   DateTime endPeriod;
   SchedulerMode mode;
@@ -176,7 +194,7 @@ class Scheduler {
     this.changeMode = .faded,
     this.music,
     required this.mode,
-  });
+  }) : id = uuid.v4();
 
   String get description => mode.description;
   List<TaskScheduler> generateTask() {
@@ -185,12 +203,12 @@ class Scheduler {
 }
 
 class TaskScheduler {
-  Scheduler scheduler;
+  String schedulerId;
   final DateTime datetime;
 
-  TaskScheduler({required this.datetime, required this.scheduler});
+  TaskScheduler({required this.datetime, required this.schedulerId});
 
-  Music get music => scheduler.music!;
+  // Music? get music => scheduler.music;
 }
 
 extension DateTimeHelper on DateTime {

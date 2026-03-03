@@ -24,7 +24,9 @@ class _MusicCardState extends State<MusicCard> {
   @override
   void initState() {
     controller.addListener(() {
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     });
     super.initState();
   }

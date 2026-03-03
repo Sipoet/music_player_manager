@@ -31,7 +31,7 @@ class SchedulerCard extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        scheduler.description,
+        "${scheduler.description}, ${scheduler.changeMode.humanize()}",
         style: TextStyle(
           color: scheduler.isExpired ? Colors.grey.shade400 : Colors.black,
         ),

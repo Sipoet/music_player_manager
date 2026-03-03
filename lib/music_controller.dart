@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:music_player_manager/models/music.dart';
@@ -9,6 +11,7 @@ class MusicController extends ChangeNotifier {
   bool get isPause => player.state == PlayerState.paused;
   bool isPlay(Music music) => music.title == currentMusic?.title && isPlaying;
   Music? currentMusic;
+  Music? bookNextMusic;
   @override
   void dispose() async {
     await player.stop();
@@ -21,6 +24,11 @@ class MusicController extends ChangeNotifier {
     currentMusic = music;
   }
 
+  Future<void> setVolume(double volume) async {
+    await player.setVolume(volume);
+    notifyListeners();
+  }
+
   Future<void> play(Music music) async {
     currentMusic = music;
     if (isPlaying) {
@@ -29,6 +37,42 @@ class MusicController extends ChangeNotifier {
     await player.play(music.source, position: Duration.zero);
     notifyListeners();
     return;
+  }
+
+  Future<double> fadeDown(Duration changeDelay) {
+    double volume = player.volume;
+    int intervalDown = (changeDelay.inMilliseconds / (volume * 100)).round();
+    var timer = Timer.periodic(Duration(milliseconds: intervalDown), (
+      duration,
+    ) {
+      debugPrint('before volume:$volume ${player.volume}');
+      volume -= 0.01;
+      player.setVolume(volume);
+      debugPrint('volume:$volume ${player.volume}');
+    });
+    return Future.delayed(changeDelay, () {
+      timer.cancel();
+      return player.volume;
+    });
+  }
+
+  Future<double> fadeUp(Duration changeDelay) {
+    double volume = player.volume;
+    int intervalDown = (changeDelay.inMilliseconds / (volume * 100)).round();
+    var timer = Timer.periodic(Duration(milliseconds: intervalDown), (
+      duration,
+    ) {
+      debugPrint('before volume:$volume ${player.volume}');
+      if (volume < 1) {
+        volume += 0.01;
+      }
+      player.setVolume(volume);
+      debugPrint('volume:$volume ${player.volume}');
+    });
+    return Future.delayed(changeDelay, () {
+      timer.cancel();
+      return player.volume;
+    });
   }
 
   Future<void> pause() async {

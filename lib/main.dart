@@ -3,10 +3,6 @@ import 'package:music_player_manager/homepage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // MediaKit.ensureInitialized();
-  await Future.delayed(const Duration(seconds: 1));
-  // JustAudioMediaKit.ensureInitialized(android: true, windows: true);
   runApp(const MyApp());
 }
 

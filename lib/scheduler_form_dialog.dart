@@ -24,7 +24,6 @@ class SchedulerFormDialog extends StatefulWidget {
 
 class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   Scheduler get scheduler => widget.scheduler;
-  Music? music;
   DateTime datetime = DateTime.now();
   DateTime date = DateTime.now();
   TimeOfDay time = TimeOfDay.now();
@@ -38,10 +37,13 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   final dateController = TextEditingController();
   final timeController = TextEditingController();
   late DateTimeRange period;
+  bool isNewRecord = false;
 
   @override
   void initState() {
-    music = scheduler.music;
+    if (scheduler.music == null) {
+      isNewRecord = true;
+    }
     period = DateTimeRange(
       start: scheduler.startPeriod,
       end: scheduler.endPeriod,
@@ -76,7 +78,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
     return AlertDialog(
       title: Text('Jadwal'),
       content: SizedBox(
-        width: 320,
+        width: 390,
         child: Form(
           key: _formState,
           child: Column(
@@ -101,7 +103,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                       }
                       final file = result.files.first;
                       setState(() {
-                        music = Music(
+                        scheduler.music = Music(
                           source: DeviceFileSource(file.path!),
                           title: file.name,
                         );
@@ -109,11 +111,18 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                     },
                     child: Text('pilih musik'),
                   ),
-                  Text(music?.title ?? '', overflow: .ellipsis),
+                  SizedBox(
+                    width: 240,
+                    child: Text(
+                      scheduler.music?.title ?? '',
+                      maxLines: 2,
+                      overflow: .ellipsis,
+                    ),
+                  ),
                 ],
               ),
               Visibility(
-                visible: music == null,
+                visible: scheduler.music == null,
                 child: Text(
                   'Musik harus dipilih',
                   style: TextStyle(color: Colors.red.shade300),
@@ -134,6 +143,62 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                     )
                     .toList(),
               ),
+              Row(
+                mainAxisAlignment: .start,
+                spacing: 10,
+                children: [
+                  DropdownMenu<ChangeMode>(
+                    width: 230,
+                    initialSelection: scheduler.changeMode,
+                    onSelected: (value) => setState(() {
+                      scheduler.changeMode = value ?? scheduler.changeMode;
+                    }),
+                    label: Text('Mode Ganti'),
+                    dropdownMenuEntries: ChangeMode.values
+                        .map<DropdownMenuEntry<ChangeMode>>(
+                          (value) => DropdownMenuEntry(
+                            value: value,
+                            label: value.humanize(),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  Visibility(
+                    visible: scheduler.changeMode == .faded,
+                    child: SizedBox(
+                      width: 120,
+                      child: TextFormField(
+                        decoration: InputDecoration(
+                          label: Text('fade out(seconds)'),
+                          border: OutlineInputBorder(),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          FilteringTextInputFormatter.singleLineFormatter,
+                        ],
+                        keyboardType: .numberWithOptions(signed: false),
+                        initialValue: scheduler.changeDelay?.inSeconds
+                            .toString(),
+                        validator: (value) {
+                          final valNum = int.tryParse(value ?? '');
+                          if (valNum == null) {
+                            return 'tidak valid';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) => setState(() {
+                          final delaySeconds = int.tryParse(value);
+                          if (delaySeconds != null) {
+                            scheduler.changeDelay = Duration(
+                              seconds: delaySeconds,
+                            );
+                          }
+                        }),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               Visibility(
                 visible: schedulerMode != .once,
                 child: TextFormField(
@@ -147,13 +212,17 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                   onTap: () {
                     showDateRangePicker(
                       context: context,
-                      initialDateRange: period,
+                      initialDateRange: DateTimeRange(
+                        start: scheduler.startPeriod,
+                        end: scheduler.endPeriod,
+                      ),
                       firstDate: DateTime.now(),
                       currentDate: date,
                       lastDate: DateTime(9999),
                     ).then((pickDate) {
                       if (pickDate != null) {
-                        period = pickDate;
+                        scheduler.startPeriod = pickDate.start;
+                        scheduler.endPeriod = pickDate.end;
                         dateController.text =
                             "${DateFormat.yMd().format(period.start)} -${DateFormat.yMd().format(period.end)} ";
                       }
@@ -333,15 +402,16 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
       actions: [
         ElevatedButton(
           onPressed: () {
-            if (music == null) {
+            if (scheduler.music == null) {
               return;
             }
             if (_formState.currentState?.validate() != true) {
               return;
             }
-            scheduler.music = music;
-            scheduler.startPeriod = period.start;
-            scheduler.endPeriod = period.end;
+            if (scheduler.changeMode == .faded &&
+                scheduler.changeDelay == null) {
+              return;
+            }
             if (schedulerMode == .once) {
               datetime = datetime.copyWith(
                 hour: time.hour,
@@ -369,7 +439,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
             }
             widget.onSaved.call(scheduler);
           },
-          child: Text('Tambah'),
+          child: Text(isNewRecord ? 'Tambah' : 'Ubah'),
         ),
         ElevatedButton(
           onPressed: () => widget.onCancel.call(scheduler),
