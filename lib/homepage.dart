@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:music_player_manager/music_player.dart';
 import 'package:music_player_manager/playlist_card.dart';
 import 'package:music_player_manager/scheduler_card.dart';
 import 'package:music_player_manager/scheduler_form_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -22,9 +24,10 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with AppUpdater {
+class _MyHomePageState extends State<MyHomePage>
+    with AppUpdater, WidgetsBindingObserver {
   late final MusicController musicController;
-  final currentPlaylist = Playlist(name: 'Main');
+  Playlist currentPlaylist = Playlist(name: 'Main');
 
   List<Scheduler> schedulers = [];
   List<Playlist> playlists = [];
@@ -34,6 +37,45 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
   final _musicScrollController = ScrollController();
   final _playlistScrollController = ScrollController();
   static const labelStyle = TextStyle(fontSize: 18, fontWeight: .bold);
+  final storage = SharedPreferencesAsync();
+  @override
+  void initState() {
+    initVersion();
+    storage.getStringList('schedulers').then((data) {
+      if (data == null) return;
+      setState(() {
+        schedulers = data
+            .map<Scheduler>((json) => Scheduler.fromJson(jsonDecode(json)))
+            .toList();
+      });
+
+      for (final scheduler in schedulers) {
+        taskSchedulers.addAll(scheduler.generateTask());
+      }
+    });
+    storage.getStringList('playlists').then((data) {
+      if (data == null) return;
+      setState(() {
+        playlists = data
+            .map<Playlist>((json) => Playlist.fromJson(jsonDecode(json)))
+            .toList();
+      });
+    });
+    storage.getString('currentPlaylist').then((data) {
+      if (data == null) return;
+      setState(() {
+        currentPlaylist = Playlist.fromJson(jsonDecode(data));
+      });
+    });
+
+    final player = AudioPlayer(playerId: Random(99999).toString());
+
+    // Set the release mode to keep the source after playback has completed.
+    player.setReleaseMode(ReleaseMode.stop);
+    musicController = MusicController(player);
+    WidgetsBinding.instance.addObserver(this);
+    super.initState();
+  }
 
   void addMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -49,7 +91,7 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
     setState(() {
       for (final file in result.files) {
         currentPlaylist.addMusic(
-          Music(source: DeviceFileSource(file.path!), title: file.name),
+          Music(sourceType: 'deviceFile', path: file.path!, title: file.name),
         );
       }
       if (musicController.currentMusic == null) {
@@ -72,27 +114,43 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
     );
   }
 
-  @override
-  void dispose() {
-    musicController.dispose();
-    super.dispose();
+  void saveValue() {
+    storage.setStringList(
+      'schedulers',
+      schedulers
+          .map<String>((scheduler) => jsonEncode(scheduler.asJson()))
+          .toList(),
+    );
+    storage.setStringList(
+      'playlists',
+      playlists
+          .map<String>((playlist) => jsonEncode(playlist.asJson()))
+          .toList(),
+    );
+    storage.setString('currentPlaylist', jsonEncode(currentPlaylist.asJson()));
   }
 
   @override
-  void initState() {
-    initVersion();
-    final player = AudioPlayer(playerId: Random(99999).toString());
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == .detached || state == .hidden || state == .paused) {
+      saveValue();
+    }
+  }
 
-    // Set the release mode to keep the source after playback has completed.
-    player.setReleaseMode(ReleaseMode.stop);
-    musicController = MusicController(player);
-    super.initState();
+  @override
+  void dispose() {
+    saveValue();
+    musicController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+
+    debugPrint('dispose');
   }
 
   void fadeMusic(Duration changeDelay, Music music) {
     musicController.fadeDown(changeDelay).then((volume) {
       musicController.play(music);
-      musicController.fadeUp(Duration(seconds: 3)).then((volume) {
+      musicController.fadeUp(Duration(seconds: 1)).then((volume) {
         musicController.setVolume(1);
       });
     });
@@ -227,6 +285,10 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
                                   setState(() {
                                     currentPlaylist.currentIndex = index;
                                   }),
+                              onDeletePressed: (music, controller) =>
+                                  setState(() {
+                                    currentPlaylist.removeMusicAt(index);
+                                  }),
                             ),
                           ),
                         ),
@@ -297,6 +359,9 @@ class _MyHomePageState extends State<MyHomePage> with AppUpdater {
                       onTimeChanged: (datetime) {
                         if (datetime.second == 0) {
                           checkMusicSchedule();
+                        }
+                        if (datetime.minute == 0) {
+                          saveValue();
                         }
                       },
                     ),

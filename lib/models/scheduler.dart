@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 abstract class SchedulerMode {
   List<TaskScheduler> generateTask(Scheduler scheduler);
   String get description;
+  Map asJson();
 }
 
 class OnceSchedulerMode extends SchedulerMode {
@@ -19,6 +20,9 @@ class OnceSchedulerMode extends SchedulerMode {
     }
     return [TaskScheduler(datetime: datetime, schedulerId: scheduler.id)];
   }
+
+  @override
+  Map asJson() => {'type': 'once', 'datetime': datetime.toIso8601String()};
 
   @override
   String get description => DateFormat('dd/MM/yyyy H:mm').format(datetime);
@@ -43,6 +47,15 @@ class IntervalSchedulerMode extends SchedulerMode {
       return Duration(days: intervalNum);
     }
   }
+
+  @override
+  Map asJson() => {
+    'type': 'interval',
+    'hour': startTime.hour,
+    'minute': startTime.minute,
+    'intervalMode': intervalMode,
+    'intervalNum': intervalNum,
+  };
 
   @override
   List<TaskScheduler> generateTask(Scheduler scheduler) {
@@ -103,6 +116,14 @@ class WeekSchedulerMode extends SchedulerMode {
   }
 
   @override
+  Map asJson() => {
+    'type': 'perWeek',
+    'hour': time.hour,
+    'minute': time.minute,
+    'weeks': weeks.toList(),
+  };
+
+  @override
   String get description =>
       'setiap hari $weekText pukul ${time.format24Hour()}';
 
@@ -158,6 +179,14 @@ class MonthSchedulerMode extends SchedulerMode {
   }
 
   @override
+  Map asJson() => {
+    'type': 'perMonth',
+    'hour': time.hour,
+    'minute': time.minute,
+    'day': day,
+  };
+
+  @override
   String get description => 'setiap tanggal $day pukul ${time.format24Hour()}';
 }
 
@@ -172,6 +201,14 @@ enum ChangeMode {
 
   @override
   String toString() => super.toString().split('.').last;
+  static ChangeMode fromString(String value) {
+    if (value == 'musicCompleted') {
+      return musicCompleted;
+    } else {
+      return faded;
+    }
+  }
+
   String humanize() =>
       this == musicCompleted ? 'Tunggu Musik Selesai' : 'langsung';
 }
@@ -199,6 +236,55 @@ class Scheduler {
   String get description => mode.description;
   List<TaskScheduler> generateTask() {
     return mode.generateTask(this);
+  }
+
+  Map asJson() {
+    return {
+      'startPeriod': startPeriod.toIso8601String(),
+      'endPeriod': endPeriod.toIso8601String(),
+      'changeDelaySeconds': changeDelay?.inSeconds,
+      'changeMode': changeMode.toString(),
+      'music': music?.asJson(),
+      'mode': mode.asJson(),
+    };
+  }
+
+  factory Scheduler.fromJson(Map json) {
+    return Scheduler(
+      startPeriod: DateTime.parse(json['startPeriod']),
+      endPeriod: DateTime.parse(json['endPeriod']),
+      changeDelay: json['changeDelaySeconds'] == null
+          ? null
+          : Duration(seconds: json['changeDelaySeconds']),
+      changeMode: ChangeMode.fromString(json['changeMode']),
+      music: Music.fromJson(json['music']),
+      mode: schedulerModeFromJson(json['mode']),
+    );
+  }
+
+  static SchedulerMode schedulerModeFromJson(Map json) {
+    switch (json['type']) {
+      case 'once':
+        return OnceSchedulerMode(datetime: DateTime.parse(json['datetime']));
+      case 'interval':
+        return IntervalSchedulerMode(
+          startTime: TimeOfDay(hour: json['hour'], minute: json['minute']),
+          intervalNum: json['intervalNum'],
+          intervalMode: json['intervalMode'],
+        );
+      case 'perWeek':
+        return WeekSchedulerMode(
+          weeks: (json['weeks'] as List<int>).toSet(),
+          time: TimeOfDay(hour: json['hour'], minute: json['minute']),
+        );
+      case 'perMonth':
+        return MonthSchedulerMode(
+          day: json['day'],
+          time: TimeOfDay(hour: json['hour'], minute: json['minute']),
+        );
+      default:
+        throw 'not supported scheduler mode ${json['type']}';
+    }
   }
 }
 

@@ -6,10 +6,12 @@ import 'package:music_player_manager/music_controller.dart';
 class MusicCard extends StatefulWidget {
   final Music music;
   final void Function(Music music, MusicController controller)? onPlayPressed;
+  final void Function(Music music, MusicController controller)? onDeletePressed;
   final MusicController controller;
   const MusicCard({
     super.key,
     this.onPlayPressed,
+    this.onDeletePressed,
     required this.music,
     required this.controller,
   });
@@ -50,6 +52,12 @@ class _MusicCardState extends State<MusicCard> {
             ),
       title: Text(music.title),
       subtitle: Text(music.artist ?? ''),
+      trailing: IconButton(
+        onPressed: () {
+          widget.onDeletePressed?.call(music, controller);
+        },
+        icon: Icon(Icons.delete),
+      ),
     );
   }
 }

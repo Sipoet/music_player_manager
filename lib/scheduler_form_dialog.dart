@@ -3,7 +3,6 @@ import 'package:music_player_manager/models/music.dart';
 import 'package:music_player_manager/models/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
 
@@ -104,7 +103,8 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                       final file = result.files.first;
                       setState(() {
                         scheduler.music = Music(
-                          source: DeviceFileSource(file.path!),
+                          sourceType: 'deviceFile',
+                          path: file.path!,
                           title: file.name,
                         );
                       });

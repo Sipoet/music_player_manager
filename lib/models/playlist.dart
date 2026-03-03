@@ -10,7 +10,24 @@ class Playlist {
 
   bool get hasNext => currentIndex + 1 < musics.length;
   bool get hasPrevious => currentIndex > 0;
-  bool isShuffle = false;
+
+  Map asJson() {
+    return {
+      'name': name,
+      'currentIndex': currentIndex,
+      'musics': musics.map((music) => music.asJson()).toList(),
+    };
+  }
+
+  factory Playlist.fromJson(Map json) {
+    return Playlist(
+      name: json['name'],
+      currentIndex: json['currentIndex'],
+      musics: (json['musics'] as List)
+          .map<Music>((data) => Music.fromJson(data))
+          .toList(),
+    );
+  }
 
   Future<Music?> next(MusicController controller) async {
     if (!hasNext) {
