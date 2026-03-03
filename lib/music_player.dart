@@ -87,9 +87,10 @@ class _MusicPlayerState extends State<MusicPlayer> {
     _playerCompleteSubscription = player.onPlayerComplete.listen((event) {
       setState(() {
         _position = Duration.zero;
-        if (controller.bookNextMusic != null) {
+        if (music?.playedCount != 0) {
+          controller.play(music!);
+        } else if (controller.bookNextMusic != null) {
           controller.play(controller.bookNextMusic!);
-          controller.bookNextMusic = null;
         } else {
           nextMusic();
         }

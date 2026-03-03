@@ -46,6 +46,7 @@ class _MusicCardState extends State<MusicCard> {
           : IconButton(
               onPressed: () => setState(() {
                 controller.play(music);
+                controller.bookNextMusic = null;
                 widget.onPlayPressed?.call(music, controller);
               }),
               icon: Icon(Icons.play_arrow),

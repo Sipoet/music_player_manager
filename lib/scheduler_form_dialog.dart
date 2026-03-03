@@ -177,7 +177,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                           FilteringTextInputFormatter.singleLineFormatter,
                         ],
                         keyboardType: .numberWithOptions(signed: false),
-                        initialValue: scheduler.changeDelay?.inSeconds
+                        initialValue: scheduler.changeDelay.inSeconds
                             .toString(),
                         validator: (value) {
                           final valNum = int.tryParse(value ?? '');
@@ -198,6 +198,33 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                     ),
                   ),
                 ],
+              ),
+              TextFormField(
+                decoration: InputDecoration(
+                  label: Text(
+                    'Jumlah putar (0 berarti putar terus). default 1',
+                  ),
+                  border: OutlineInputBorder(),
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  FilteringTextInputFormatter.singleLineFormatter,
+                ],
+                keyboardType: .number,
+                initialValue: scheduler.loopCount.toString(),
+                validator: (value) {
+                  final valNum = int.tryParse(value ?? '');
+                  if (valNum == null || valNum < 0) {
+                    return 'tidak valid';
+                  }
+                  return null;
+                },
+                onChanged: (value) => setState(() {
+                  final loopCount = int.tryParse(value);
+                  if (loopCount != null) {
+                    scheduler.loopCount = loopCount;
+                  }
+                }),
               ),
               Visibility(
                 visible: schedulerMode != .once,
@@ -408,10 +435,8 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
             if (_formState.currentState?.validate() != true) {
               return;
             }
-            if (scheduler.changeMode == .faded &&
-                scheduler.changeDelay == null) {
-              return;
-            }
+            scheduler.music?.loopCount = scheduler.loopCount;
+            scheduler.music?.playedCount = scheduler.loopCount;
             if (schedulerMode == .once) {
               datetime = datetime.copyWith(
                 hour: time.hour,

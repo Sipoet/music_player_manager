@@ -65,6 +65,7 @@ class _MyHomePageState extends State<MyHomePage>
       if (data == null) return;
       setState(() {
         currentPlaylist = Playlist.fromJson(jsonDecode(data));
+        musicController.setMusic(currentPlaylist.currentMusic);
       });
     });
 
@@ -162,32 +163,38 @@ class _MyHomePageState extends State<MyHomePage>
       return;
     }
     isChecked = true;
-    for (final taskScheduler in taskSchedulers) {
-      final scheduler = schedulers.firstWhere(
-        (e) => e.id == taskScheduler.schedulerId,
-      );
-      if (taskScheduler.datetime.isAfter(DateTime.now()) ||
-          scheduler.music == null) {
-        continue;
-      }
-      if (scheduler.changeMode == .faded) {
-        if (scheduler.changeDelay == null) {
-          musicController.play(scheduler.music!);
-        } else {
-          fadeMusic(scheduler.changeDelay!, scheduler.music!);
+    Future.delayed(Duration.zero, () {
+      for (final taskScheduler in taskSchedulers) {
+        final scheduler = schedulers.firstWhere(
+          (e) => e.id == taskScheduler.schedulerId,
+        );
+        if (taskScheduler.datetime.isAfter(DateTime.now()) ||
+            scheduler.music == null) {
+          continue;
         }
-      } else if (scheduler.changeMode == .musicCompleted) {
-        musicController.bookNextMusic = scheduler.music;
+        debugPrint('run task schedule');
+        if (scheduler.changeMode == .faded) {
+          if (scheduler.changeDelay.inMilliseconds == 0) {
+            musicController.play(scheduler.music!);
+          } else {
+            fadeMusic(scheduler.changeDelay, scheduler.music!);
+          }
+        } else if (scheduler.changeMode == .musicCompleted) {
+          musicController.bookNextMusic = scheduler.music;
+        }
+        final result = taskSchedulers.remove(taskScheduler);
+        debugPrint('result $result');
+        if (isTaskScheduleEmpty(scheduler)) {
+          setState(() {
+            expiredScheduler(scheduler);
+          });
+        }
       }
-      final result = taskSchedulers.remove(taskScheduler);
-      debugPrint('result $result');
-      if (isTaskScheduleEmpty(scheduler)) {
-        setState(() {
-          expiredScheduler(scheduler);
-        });
-      }
-    }
-    isChecked = false;
+    }).whenComplete(
+      () => setState(() {
+        isChecked = false;
+      }),
+    );
   }
 
   void expiredScheduler(Scheduler scheduler) {
@@ -357,7 +364,7 @@ class _MyHomePageState extends State<MyHomePage>
                     SizedBox(height: 5),
                     Clock(
                       onTimeChanged: (datetime) {
-                        if (datetime.second == 0) {
+                        if (datetime.second == 1) {
                           checkMusicSchedule();
                         }
                         if (datetime.minute == 0) {
@@ -432,9 +439,20 @@ class _MyHomePageState extends State<MyHomePage>
                                                 schedulers.setAll(index, [
                                                   newScheduler,
                                                 ]);
-                                                removeTaskScheduler(scheduler);
-                                                taskSchedulers.addAll(
-                                                  scheduler.generateTask(),
+                                                isChecked = true;
+                                                Future.delayed(
+                                                  Duration.zero,
+                                                  () {
+                                                    removeTaskScheduler(
+                                                      scheduler,
+                                                    );
+                                                    taskSchedulers.addAll(
+                                                      scheduler.generateTask(),
+                                                    );
+                                                    setState(() {
+                                                      isChecked = false;
+                                                    });
+                                                  },
                                                 );
                                               });
                                             }

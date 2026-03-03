@@ -220,14 +220,16 @@ class Scheduler {
   DateTime startPeriod;
   DateTime endPeriod;
   SchedulerMode mode;
-  Duration? changeDelay;
+  Duration changeDelay;
   ChangeMode changeMode;
   Music? music;
+  int loopCount;
   bool isExpired = false;
   Scheduler({
     required this.startPeriod,
     required this.endPeriod,
-    this.changeDelay,
+    this.changeDelay = const Duration(seconds: 0),
+    this.loopCount = 1,
     this.changeMode = .faded,
     this.music,
     required this.mode,
@@ -242,7 +244,7 @@ class Scheduler {
     return {
       'startPeriod': startPeriod.toIso8601String(),
       'endPeriod': endPeriod.toIso8601String(),
-      'changeDelaySeconds': changeDelay?.inSeconds,
+      'changeDelaySeconds': changeDelay.inSeconds,
       'changeMode': changeMode.toString(),
       'music': music?.asJson(),
       'mode': mode.asJson(),
@@ -253,9 +255,7 @@ class Scheduler {
     return Scheduler(
       startPeriod: DateTime.parse(json['startPeriod']),
       endPeriod: DateTime.parse(json['endPeriod']),
-      changeDelay: json['changeDelaySeconds'] == null
-          ? null
-          : Duration(seconds: json['changeDelaySeconds']),
+      changeDelay: Duration(seconds: json['changeDelaySeconds'] ?? 0),
       changeMode: ChangeMode.fromString(json['changeMode']),
       music: Music.fromJson(json['music']),
       mode: schedulerModeFromJson(json['mode']),

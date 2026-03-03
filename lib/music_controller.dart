@@ -10,7 +10,9 @@ class MusicController extends ChangeNotifier {
   MusicController(this.player);
   bool get isPause => player.state == PlayerState.paused;
   bool isPlay(Music music) => music.title == currentMusic?.title && isPlaying;
-  Music? currentMusic;
+  Music? _currentMusic;
+
+  Music? get currentMusic => _currentMusic;
   Music? bookNextMusic;
   @override
   void dispose() async {
@@ -20,8 +22,10 @@ class MusicController extends ChangeNotifier {
   }
 
   Future<void> setMusic(Music music) async {
+    if (!isPlaying) {
+      _currentMusic = music;
+    }
     await player.setSource(music.source);
-    currentMusic = music;
   }
 
   Future<void> setVolume(double volume) async {
@@ -30,11 +34,12 @@ class MusicController extends ChangeNotifier {
   }
 
   Future<void> play(Music music) async {
-    currentMusic = music;
+    _currentMusic = music;
     if (isPlaying) {
       await player.stop();
     }
     await player.play(music.source, position: Duration.zero);
+    music.playedCount -= 1;
     notifyListeners();
     return;
   }
