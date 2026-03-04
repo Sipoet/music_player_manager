@@ -7,18 +7,15 @@ class Music {
   String? album;
   String? genre;
   String path;
-  int loopCount;
-  int playedCount;
   String sourceType;
   Music({
     required this.sourceType,
     required this.path,
-    this.loopCount = 1,
     this.artist = '',
     this.title = '',
     this.album,
     this.genre,
-  }) : playedCount = loopCount;
+  });
 
   Map asJson() {
     return {
@@ -28,7 +25,6 @@ class Music {
       'genre': genre,
       'sourceType': sourceType,
       'path': path,
-      'loopCount': loopCount,
     };
   }
 
@@ -51,7 +47,6 @@ class Music {
       artist: json['artist'],
       album: json['album'],
       genre: json['genre'],
-      loopCount: json['loopCount'] ?? 1,
     );
   }
 }

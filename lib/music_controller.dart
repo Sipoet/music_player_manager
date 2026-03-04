@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:music_player_manager/models/music.dart';
+import 'package:music_player_manager/models/scheduler.dart';
 
 class MusicController extends ChangeNotifier {
   final AudioPlayer player;
@@ -13,6 +14,7 @@ class MusicController extends ChangeNotifier {
   Music? _currentMusic;
 
   Music? get currentMusic => _currentMusic;
+  TaskScheduler? taskScheduler;
   Music? bookNextMusic;
   @override
   void dispose() async {
@@ -39,7 +41,6 @@ class MusicController extends ChangeNotifier {
       await player.stop();
     }
     await player.play(music.source, position: Duration.zero);
-    music.playedCount -= 1;
     notifyListeners();
     return;
   }

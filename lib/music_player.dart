@@ -10,8 +10,12 @@ class MusicPlayer extends StatefulWidget {
   final MusicController controller;
   final Playlist playlist;
   final RepeatMode repeatMode;
+  final void Function(Music music)? onNextMusic;
+  final void Function(Music music)? onPrevMusic;
   const MusicPlayer({
     super.key,
+    this.onNextMusic,
+    this.onPrevMusic,
     required this.controller,
     required this.playlist,
     this.repeatMode = .all,
@@ -87,13 +91,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
     _playerCompleteSubscription = player.onPlayerComplete.listen((event) {
       setState(() {
         _position = Duration.zero;
-        if (music?.playedCount != 0) {
-          controller.play(music!);
-        } else if (controller.bookNextMusic != null) {
-          controller.play(controller.bookNextMusic!);
-        } else {
-          nextMusic();
-        }
+        nextMusic();
       });
     });
 
@@ -114,20 +112,28 @@ class _MusicPlayerState extends State<MusicPlayer> {
   }
 
   void nextMusic() {
-    if (repeatMode == .disabled) {
-      if (playlist.hasNext) {
-        playlist.next(controller);
-      }
-      return;
-    } else if (repeatMode == .all) {
-      if (playlist.hasNext) {
-        playlist.next(controller);
-      } else {
-        playlist.currentIndex = 0;
-        controller.play(playlist.currentMusic);
-      }
-    } else if (repeatMode == .one) {
-      controller.play(playlist.currentMusic);
+    if (controller.taskScheduler?.loopCount == 0) {
+      controller.taskScheduler = null;
+    }
+    final taskScheduler = controller.taskScheduler;
+    if (taskScheduler != null) {
+      debugPrint('masuk schedule repeat ${taskScheduler.loopCount}');
+      controller.play(taskScheduler.music);
+      taskScheduler.loopCount -= 1;
+      widget.onNextMusic?.call(taskScheduler.music);
+    } else if (controller.bookNextMusic != null) {
+      debugPrint('masuk book music');
+      controller.play(controller.bookNextMusic!);
+      controller.bookNextMusic = null;
+      widget.onNextMusic?.call(controller.bookNextMusic!);
+    } else {
+      debugPrint('masuk player repeat mode');
+      playlist.next(repeatMode).then((Music? music) {
+        if (music != null) {
+          controller.play(music);
+          widget.onPrevMusic?.call(music);
+        }
+      });
     }
   }
 
@@ -142,8 +148,14 @@ class _MusicPlayerState extends State<MusicPlayer> {
           children: [
             IconButton(
               onPressed: playlist.hasPrevious
-                  ? () => playlist.previous(controller)
+                  ? () => playlist.previous().then((Music? music) {
+                      if (music != null) {
+                        controller.play(music);
+                        widget.onPrevMusic?.call(music);
+                      }
+                    })
                   : null,
+              tooltip: 'Sebelumnya',
               icon: Icon(Icons.skip_previous),
             ),
             IconButton(
@@ -152,26 +164,30 @@ class _MusicPlayerState extends State<MusicPlayer> {
                   setState(() {});
                 });
               },
+              tooltip: controller.isPlaying ? 'berhenti Sementara' : 'Main',
               icon: Icon(controller.isPlaying ? Icons.pause : Icons.play_arrow),
             ),
             IconButton(
               onPressed: () => setState(() {
                 controller.stop();
               }),
+              tooltip: 'Berhenti',
               icon: Icon(Icons.stop),
             ),
             IconButton(
               onPressed: !playlist.hasNext && repeatMode == .disabled
                   ? null
                   : () {
-                      playlist.next(controller);
+                      nextMusic();
                     },
+              tooltip: 'Selanjutnya',
               icon: Icon(Icons.skip_next),
             ),
             IconButton(
               onPressed: () => setState(() {
                 toggleRepeat();
               }),
+              tooltip: 'Mode Ulang',
               icon: repeatMode.icon,
             ),
           ],
@@ -217,25 +233,5 @@ class _MusicPlayerState extends State<MusicPlayer> {
         ),
       ],
     );
-  }
-}
-
-enum RepeatMode {
-  disabled,
-  one,
-  all;
-
-  @override
-  String toString() => super.toString().split('.').last;
-
-  Icon get icon {
-    switch (this) {
-      case disabled:
-        return Icon(Icons.repeat, color: Colors.grey);
-      case one:
-        return Icon(Icons.repeat_one);
-      case all:
-        return Icon(Icons.repeat);
-    }
   }
 }

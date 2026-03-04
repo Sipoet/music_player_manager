@@ -435,8 +435,6 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
             if (_formState.currentState?.validate() != true) {
               return;
             }
-            scheduler.music?.loopCount = scheduler.loopCount;
-            scheduler.music?.playedCount = scheduler.loopCount;
             if (schedulerMode == .once) {
               datetime = datetime.copyWith(
                 hour: time.hour,
@@ -462,6 +460,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
             } else {
               scheduler.mode = WeekSchedulerMode(time: time, weeks: weeks);
             }
+            scheduler.updatedAt = DateTime.now();
             widget.onSaved.call(scheduler);
           },
           child: Text(isNewRecord ? 'Tambah' : 'Ubah'),

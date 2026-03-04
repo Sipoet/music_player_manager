@@ -1,5 +1,6 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/music.dart';
-import 'package:music_player_manager/music_controller.dart';
 
 class Playlist {
   String name;
@@ -10,6 +11,7 @@ class Playlist {
 
   bool get hasNext => currentIndex + 1 < musics.length;
   bool get hasPrevious => currentIndex > 0;
+  Music? get currentMusic => musics.elementAtOrNull(currentIndex);
 
   Map asJson() {
     return {
@@ -29,25 +31,29 @@ class Playlist {
     );
   }
 
-  Future<Music?> next(MusicController controller) async {
-    if (!hasNext) {
+  Future<Music?> next(RepeatMode mode) async {
+    if (mode == .one) {
+      return currentMusic;
+    }
+    if (mode == .disabled && !hasNext) {
       return null;
     }
-    currentIndex += 1;
-    final music = musics[currentIndex];
-    await controller.play(music);
-    return music;
+    if (mode == .shuffle) {
+      currentIndex = Random().nextInt(musics.length - 1);
+    } else if (hasNext) {
+      currentIndex += 1;
+    } else {
+      currentIndex = 0;
+    }
+    return musics[currentIndex];
   }
 
-  Music get currentMusic => musics[currentIndex];
-
-  Future<Music?> previous(MusicController controller) async {
+  Future<Music?> previous() async {
     if (!hasPrevious) {
       return null;
     }
     currentIndex -= 1;
     final music = musics[currentIndex];
-    await controller.play(music);
     return music;
   }
 
@@ -69,6 +75,29 @@ class Playlist {
     musics.removeAt(index);
     if (musics.isEmpty) {
       currentIndex = -1;
+    }
+  }
+}
+
+enum RepeatMode {
+  disabled,
+  one,
+  all,
+  shuffle;
+
+  @override
+  String toString() => super.toString().split('.').last;
+
+  Icon get icon {
+    switch (this) {
+      case disabled:
+        return Icon(Icons.repeat, color: Colors.grey);
+      case one:
+        return Icon(Icons.repeat_one);
+      case all:
+        return Icon(Icons.repeat);
+      case shuffle:
+        return Icon(Icons.shuffle);
     }
   }
 }

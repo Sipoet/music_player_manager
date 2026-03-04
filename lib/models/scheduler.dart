@@ -18,7 +18,14 @@ class OnceSchedulerMode extends SchedulerMode {
     if (datetime.isBefore(DateTime.now())) {
       return [];
     }
-    return [TaskScheduler(datetime: datetime, schedulerId: scheduler.id)];
+    return [
+      TaskScheduler(
+        datetime: datetime,
+        loopCount: scheduler.loopCount,
+        music: scheduler.music!,
+        schedulerId: scheduler.id,
+      ),
+    ];
   }
 
   @override
@@ -74,7 +81,12 @@ class IntervalSchedulerMode extends SchedulerMode {
         continue;
       }
       result.add(
-        TaskScheduler(datetime: startPeriod, schedulerId: scheduler.id),
+        TaskScheduler(
+          datetime: startPeriod,
+          loopCount: scheduler.loopCount,
+          music: scheduler.music!,
+          schedulerId: scheduler.id,
+        ),
       );
       startPeriod = startPeriod.add(interval);
     }
@@ -107,7 +119,12 @@ class WeekSchedulerMode extends SchedulerMode {
     while (startPeriod.isBefore(scheduler.endPeriod)) {
       if (weeks.contains(startPeriod.weekday)) {
         result.add(
-          TaskScheduler(datetime: startPeriod, schedulerId: scheduler.id),
+          TaskScheduler(
+            datetime: startPeriod,
+            loopCount: scheduler.loopCount,
+            music: scheduler.music!,
+            schedulerId: scheduler.id,
+          ),
         );
       }
       startPeriod = startPeriod.add(Duration(days: 1));
@@ -168,7 +185,12 @@ class MonthSchedulerMode extends SchedulerMode {
 
     while (startPeriod.isBefore(scheduler.endPeriod)) {
       result.add(
-        TaskScheduler(datetime: startPeriod, schedulerId: scheduler.id),
+        TaskScheduler(
+          datetime: startPeriod,
+          loopCount: scheduler.loopCount,
+          music: scheduler.music!,
+          schedulerId: scheduler.id,
+        ),
       );
       startPeriod = startPeriod
           .copyWith(day: 4)
@@ -224,6 +246,7 @@ class Scheduler {
   ChangeMode changeMode;
   Music? music;
   int loopCount;
+  DateTime updatedAt;
   bool isExpired = false;
   Scheduler({
     required this.startPeriod,
@@ -233,7 +256,8 @@ class Scheduler {
     this.changeMode = .faded,
     this.music,
     required this.mode,
-  }) : id = uuid.v4();
+  }) : id = uuid.v4(),
+       updatedAt = DateTime.now();
 
   String get description => mode.description;
   List<TaskScheduler> generateTask() {
@@ -291,10 +315,15 @@ class Scheduler {
 class TaskScheduler {
   String schedulerId;
   final DateTime datetime;
+  final Music music;
+  int loopCount;
 
-  TaskScheduler({required this.datetime, required this.schedulerId});
-
-  // Music? get music => scheduler.music;
+  TaskScheduler({
+    required this.datetime,
+    required this.schedulerId,
+    required this.music,
+    this.loopCount = 1,
+  });
 }
 
 extension DateTimeHelper on DateTime {

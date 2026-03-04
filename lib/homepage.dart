@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -32,6 +33,7 @@ class _MyHomePageState extends State<MyHomePage>
   List<Scheduler> schedulers = [];
   List<Playlist> playlists = [];
   List<TaskScheduler> taskSchedulers = [];
+  Map<int, FocusNode> focusNodes = {};
 
   final _schedulerScrollController = ScrollController();
   final _musicScrollController = ScrollController();
@@ -65,7 +67,12 @@ class _MyHomePageState extends State<MyHomePage>
       if (data == null) return;
       setState(() {
         currentPlaylist = Playlist.fromJson(jsonDecode(data));
-        musicController.setMusic(currentPlaylist.currentMusic);
+        if (currentPlaylist.currentMusic != null) {
+          musicController.setMusic(currentPlaylist.currentMusic!);
+        }
+        for (int i = 0; i < currentPlaylist.musics.length; i++) {
+          focusNodes[i] = FocusNode();
+        }
       });
     });
 
@@ -95,8 +102,9 @@ class _MyHomePageState extends State<MyHomePage>
           Music(sourceType: 'deviceFile', path: file.path!, title: file.name),
         );
       }
-      if (musicController.currentMusic == null) {
-        musicController.setMusic(currentPlaylist.currentMusic);
+      if (musicController.currentMusic == null &&
+          currentPlaylist.currentMusic != null) {
+        musicController.setMusic(currentPlaylist.currentMusic!);
       }
     });
   }
@@ -142,6 +150,9 @@ class _MyHomePageState extends State<MyHomePage>
   void dispose() {
     saveValue();
     musicController.dispose();
+    _musicScrollController.dispose();
+    _playlistScrollController.dispose();
+    _schedulerScrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
 
@@ -150,9 +161,10 @@ class _MyHomePageState extends State<MyHomePage>
 
   void fadeMusic(Duration changeDelay, Music music) {
     musicController.fadeDown(changeDelay).then((volume) {
-      musicController.play(music);
-      musicController.fadeUp(Duration(seconds: 1)).then((volume) {
-        musicController.setVolume(1);
+      musicController.play(music).then((notData) {
+        musicController.fadeUp(Duration(seconds: 1)).then((volume) {
+          musicController.setVolume(1);
+        });
       });
     });
   }
@@ -172,6 +184,7 @@ class _MyHomePageState extends State<MyHomePage>
             scheduler.music == null) {
           continue;
         }
+        musicController.taskScheduler = taskScheduler;
         debugPrint('run task schedule');
         if (scheduler.changeMode == .faded) {
           if (scheduler.changeDelay.inMilliseconds == 0) {
@@ -182,6 +195,7 @@ class _MyHomePageState extends State<MyHomePage>
         } else if (scheduler.changeMode == .musicCompleted) {
           musicController.bookNextMusic = scheduler.music;
         }
+        taskScheduler.loopCount -= 1;
         final result = taskSchedulers.remove(taskScheduler);
         debugPrint('result $result');
         if (isTaskScheduleEmpty(scheduler)) {
@@ -205,6 +219,18 @@ class _MyHomePageState extends State<MyHomePage>
 
   void removeTaskScheduler(Scheduler scheduler) {
     taskSchedulers.removeWhere((e) => e.schedulerId == scheduler.id);
+  }
+
+  void focusOnMusicCard(Music music) {
+    int index = currentPlaylist.musics.indexOf(music);
+    debugPrint('index: $index');
+    if (index >= 0) {
+      _musicScrollController.animateTo(
+        index * 74,
+        duration: Duration(seconds: 1),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   double myVolume = 0;
@@ -285,18 +311,29 @@ class _MyHomePageState extends State<MyHomePage>
                             itemCount: currentPlaylist.musics.length,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: 10),
-                            itemBuilder: (context, index) => MusicCard(
-                              controller: musicController,
-                              music: currentPlaylist.musics[index],
-                              onPlayPressed: (music, controller) =>
-                                  setState(() {
-                                    currentPlaylist.currentIndex = index;
-                                  }),
-                              onDeletePressed: (music, controller) =>
-                                  setState(() {
-                                    currentPlaylist.removeMusicAt(index);
-                                  }),
-                            ),
+                            itemBuilder: (context, index) {
+                              return Focus(
+                                focusNode: focusNodes[index],
+                                onFocusChange: (hasFocus) {
+                                  // if (hasFocus) {
+                                  debugPrint('has focus $hasFocus $index');
+
+                                  // }
+                                },
+                                child: MusicCard(
+                                  controller: musicController,
+                                  music: currentPlaylist.musics[index],
+                                  onPlayPressed: (music, controller) =>
+                                      setState(() {
+                                        currentPlaylist.currentIndex = index;
+                                      }),
+                                  onDeletePressed: (music, controller) =>
+                                      setState(() {
+                                        currentPlaylist.removeMusicAt(index);
+                                      }),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -306,6 +343,8 @@ class _MyHomePageState extends State<MyHomePage>
                         child: MusicPlayer(
                           controller: musicController,
                           playlist: currentPlaylist,
+                          onNextMusic: (music) => focusOnMusicCard(music),
+                          onPrevMusic: (music) => focusOnMusicCard(music),
                         ),
                       ),
                     ],
@@ -320,7 +359,7 @@ class _MyHomePageState extends State<MyHomePage>
                   crossAxisAlignment: .start,
                   children: [
                     Container(
-                      height: 350,
+                      height: 250,
                       decoration: BoxDecoration(border: Border.all()),
                       child: Column(
                         children: [
@@ -373,102 +412,109 @@ class _MyHomePageState extends State<MyHomePage>
                       },
                     ),
                     SizedBox(height: 5),
-                    Container(
-                      height: 350,
-                      decoration: BoxDecoration(border: Border.all()),
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 5.0,
-                              left: 10,
-                              right: 10,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: .spaceBetween,
-                              children: [
-                                Text('Scheduler', style: labelStyle),
-                                IconButton(
-                                  onPressed: () {
-                                    showScheduleForm(
-                                      Scheduler(
-                                        startPeriod: DateTime.now()
-                                            .beginningOfDay(),
-                                        endPeriod: DateTime.now().endOfDay(),
-                                        mode: OnceSchedulerMode(
-                                          datetime: DateTime.now(),
+                    Expanded(
+                      child: Container(
+                        // height: 250,
+                        decoration: BoxDecoration(border: Border.all()),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 5.0,
+                                left: 10,
+                                right: 10,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: .spaceBetween,
+                                children: [
+                                  Text('Scheduler', style: labelStyle),
+                                  IconButton(
+                                    onPressed: () {
+                                      showScheduleForm(
+                                        Scheduler(
+                                          startPeriod: DateTime.now()
+                                              .beginningOfDay(),
+                                          endPeriod: DateTime.now().endOfDay(),
+                                          mode: OnceSchedulerMode(
+                                            datetime: DateTime.now(),
+                                          ),
                                         ),
-                                      ),
-                                    ).then((Scheduler? newScheduler) {
-                                      if (newScheduler != null) {
-                                        setState(() {
-                                          schedulers.insert(0, newScheduler);
-                                          taskSchedulers.addAll(
-                                            newScheduler.generateTask(),
-                                          );
-                                        });
-                                      }
-                                    });
-                                  },
-                                  icon: Icon(Icons.add),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(),
-                          Expanded(
-                            child: Scrollbar(
-                              thumbVisibility: true,
-                              trackVisibility: true,
-                              controller: _schedulerScrollController,
-                              child: ListView(
-                                controller: _schedulerScrollController,
-                                children: schedulers
-                                    .map<SchedulerCard>(
-                                      (scheduler) => SchedulerCard(
-                                        scheduler: scheduler,
-                                        onEdit: (scheduler) {
-                                          final index = schedulers.indexOf(
-                                            scheduler,
-                                          );
-                                          showScheduleForm(scheduler).then((
-                                            Scheduler? newScheduler,
-                                          ) {
-                                            if (newScheduler != null) {
-                                              setState(() {
-                                                schedulers.setAll(index, [
-                                                  newScheduler,
-                                                ]);
-                                                isChecked = true;
-                                                Future.delayed(
-                                                  Duration.zero,
-                                                  () {
-                                                    removeTaskScheduler(
-                                                      scheduler,
-                                                    );
-                                                    taskSchedulers.addAll(
-                                                      scheduler.generateTask(),
-                                                    );
-                                                    setState(() {
-                                                      isChecked = false;
-                                                    });
-                                                  },
-                                                );
-                                              });
-                                            }
+                                      ).then((Scheduler? newScheduler) {
+                                        if (newScheduler != null) {
+                                          setState(() {
+                                            schedulers.insert(0, newScheduler);
+                                            taskSchedulers.addAll(
+                                              newScheduler.generateTask(),
+                                            );
                                           });
-                                        },
-                                        onDelete: (scheduler) => setState(() {
-                                          schedulers.remove(scheduler);
-                                          removeTaskScheduler(scheduler);
-                                        }),
-                                      ),
-                                    )
-                                    .toList(),
+                                        }
+                                      });
+                                    },
+                                    icon: Icon(Icons.add),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+                            const Divider(),
+                            Expanded(
+                              child: Scrollbar(
+                                thumbVisibility: true,
+                                trackVisibility: true,
+                                controller: _schedulerScrollController,
+                                child: ListView(
+                                  controller: _schedulerScrollController,
+                                  children: schedulers
+                                      .sorted(
+                                        (a, b) =>
+                                            b.updatedAt.compareTo(a.updatedAt),
+                                      )
+                                      .map<SchedulerCard>(
+                                        (scheduler) => SchedulerCard(
+                                          scheduler: scheduler,
+                                          onEdit: (scheduler) {
+                                            final index = schedulers.indexOf(
+                                              scheduler,
+                                            );
+                                            showScheduleForm(scheduler).then((
+                                              Scheduler? newScheduler,
+                                            ) {
+                                              if (newScheduler != null) {
+                                                setState(() {
+                                                  schedulers.setAll(index, [
+                                                    newScheduler,
+                                                  ]);
+                                                  isChecked = true;
+                                                  Future.delayed(
+                                                    Duration.zero,
+                                                    () {
+                                                      removeTaskScheduler(
+                                                        scheduler,
+                                                      );
+                                                      taskSchedulers.addAll(
+                                                        scheduler
+                                                            .generateTask(),
+                                                      );
+                                                      setState(() {
+                                                        isChecked = false;
+                                                      });
+                                                    },
+                                                  );
+                                                });
+                                              }
+                                            });
+                                          },
+                                          onDelete: (scheduler) => setState(() {
+                                            schedulers.remove(scheduler);
+                                            removeTaskScheduler(scheduler);
+                                          }),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

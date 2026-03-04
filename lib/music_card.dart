@@ -47,6 +47,7 @@ class _MusicCardState extends State<MusicCard> {
               onPressed: () => setState(() {
                 controller.play(music);
                 controller.bookNextMusic = null;
+                controller.taskScheduler = null;
                 widget.onPlayPressed?.call(music, controller);
               }),
               icon: Icon(Icons.play_arrow),
