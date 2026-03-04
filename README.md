@@ -31,8 +31,8 @@ This app still in beta. do it with your own risk.
   - every X minute
   - every X hour
   - every X day
-  - every X week. choose day of weeks
-  - every X month
+  - every X day per week
+  - every X day per month
 
 ## FAQ
 - current locale in bahasa only(Indonesia primary language). other locale currently not supported
