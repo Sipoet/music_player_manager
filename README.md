@@ -1,16 +1,39 @@
 # music_player_manager
 
-A new Flutter project.
+Music Player with scheduler. this application is not remix or DJ music tools
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+This app still in beta. do it with your own risk.
 
-A few resources to get you started if this is your first Flutter project:
+## How to install
+- download installer based your platform:
+  - windows installer: [link]("https://raw.githubusercontent.com/Sipoet/music_player_manager/master/src/windows/installer_music_player_manager.exe")
+  - android installer: [link]("https://raw.githubusercontent.com/Sipoet/music_player_manager/master/src/android/installer_music_player_manager.apk")
+  - other: not supported
+- install downloaded installer
+## Feature
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### music player
+- currently only support music file on local device
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### scheduler
+- there are 2 change mode:
+  - faded change
+  - direct/instant change
+  - after current music finished play
+- there are 2 repeat mode:
+  - X times loop
+  - infinity loop until user play another music
+- currently only support music file on local device
+- there are 6 interval mode:
+  - 1 times
+  - every X minute
+  - every X hour
+  - every X day
+  - every X week. choose day of weeks
+  - every X month
+
+## FAQ
+- current locale in bahasa only(Indonesia primary language). other locale currently not supported
+- license is under LGPLv3 due to library used
