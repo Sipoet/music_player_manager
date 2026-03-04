@@ -8,8 +8,8 @@ This app still in beta. do it with your own risk.
 
 ## How to install
 - download installer based your platform:
-  - windows installer: [link]("https://raw.githubusercontent.com/Sipoet/music_player_manager/master/src/windows/installer_music_player_manager.exe")
-  - android installer: [link]("https://raw.githubusercontent.com/Sipoet/music_player_manager/master/src/android/installer_music_player_manager.apk")
+  - windows installer: [link](https://raw.githubusercontent.com/Sipoet/music_player_manager/master/src/windows/installer_music_player_manager.exe)
+  - android installer: [link](https://raw.githubusercontent.com/Sipoet/music_player_manager/master/src/android/installer_music_player_manager.apk)
   - other: not supported
 - install downloaded installer
 ## Feature
