@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:music_player_manager/homepage.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  initializeDateFormatting('id_ID', null).then((data) => runApp(const MyApp()));
 }
 
 class MyApp extends StatelessWidget {

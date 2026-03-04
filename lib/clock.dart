@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:music_player_manager/custom_type.dart';
 
 class Clock extends StatefulWidget {
   final void Function(DateTime datetime)? onTimeChanged;
@@ -12,7 +12,7 @@ class Clock extends StatefulWidget {
 
 class _ClockState extends State<Clock> {
   DateTime datetime = DateTime.now();
-  String get _timeText => DateFormat(widget.format).format(datetime);
+  String get _timeText => datetime.format(pattern: widget.format);
 
   @override
   void initState() {

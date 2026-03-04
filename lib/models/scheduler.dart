@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:music_player_manager/custom_type.dart';
 import 'package:music_player_manager/models/music.dart';
 import 'package:uuid/uuid.dart';
 
@@ -32,7 +32,7 @@ class OnceSchedulerMode extends SchedulerMode {
   Map asJson() => {'type': 'once', 'datetime': datetime.toIso8601String()};
 
   @override
-  String get description => DateFormat('dd/MM/yyyy H:mm').format(datetime);
+  String get description => datetime.format(pattern: 'dd/MM/yyyy H:mm');
 }
 
 class IntervalSchedulerMode extends SchedulerMode {
@@ -324,11 +324,4 @@ class TaskScheduler {
     required this.music,
     this.loopCount = 1,
   });
-}
-
-extension DateTimeHelper on DateTime {
-  DateTime beginningOfDay() =>
-      copyWith(hour: 0, microsecond: 0, minute: 0, second: 0, millisecond: 0);
-  DateTime endOfDay() =>
-      copyWith(hour: 23, minute: 59, second: 59, millisecond: 999);
 }

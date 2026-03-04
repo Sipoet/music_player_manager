@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/music.dart';
 import 'package:music_player_manager/models/scheduler.dart';
-import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
+import 'package:music_player_manager/custom_type.dart';
 
 class SchedulerFormDialog extends StatefulWidget {
   final Scheduler scheduler;
@@ -35,6 +35,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   final dateRangeController = TextEditingController();
   final dateController = TextEditingController();
   final timeController = TextEditingController();
+  final _scrollController = ScrollController();
   late DateTimeRange period;
   bool isNewRecord = false;
 
@@ -65,9 +66,9 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
       time = mode.time;
     }
     dateRangeController.text =
-        "${DateFormat.yMd().format(period.start)} - ${DateFormat.yMd().format(period.end)}";
+        "${period.start.format(pattern: 'dd/MM/y')} - ${period.end.format(pattern: 'dd/MM/y')}";
 
-    dateController.text = DateFormat.yMd().format(date);
+    dateController.text = date.format(pattern: 'dd/MM/y');
     timeController.text = time.format24Hour();
     super.initState();
   }
@@ -76,353 +77,372 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text('Jadwal'),
-      content: SizedBox(
-        width: 390,
-        child: Form(
-          key: _formState,
-          child: Column(
-            crossAxisAlignment: .start,
-            spacing: 10,
-            children: [
-              Row(
-                spacing: 10,
-                children: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      FilePickerResult? result = await FilePicker.platform
-                          .pickFiles(
-                            type: .audio,
-                            withReadStream: true,
-                            withData: true,
-                            dialogTitle: 'pilih musik',
-                            allowMultiple: false,
-                          );
-                      if (result == null) {
-                        return;
-                      }
-                      final file = result.files.first;
-                      setState(() {
-                        scheduler.music = Music(
-                          sourceType: 'deviceFile',
-                          path: file.path!,
-                          title: file.name,
-                        );
-                      });
-                    },
-                    child: Text('pilih musik'),
-                  ),
-                  SizedBox(
-                    width: 240,
-                    child: Text(
-                      scheduler.music?.title ?? '',
-                      maxLines: 2,
-                      overflow: .ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              Visibility(
-                visible: scheduler.music == null,
-                child: Text(
-                  'Musik harus dipilih',
-                  style: TextStyle(color: Colors.red.shade300),
-                ),
-              ),
-              DropdownMenu<EnumSchedulerMode>(
-                width: 250,
-                initialSelection: schedulerMode,
-                onSelected: (value) => setState(() {
-                  schedulerMode = value ?? schedulerMode;
-                }),
-                dropdownMenuEntries: EnumSchedulerMode.values
-                    .map<DropdownMenuEntry<EnumSchedulerMode>>(
-                      (value) => DropdownMenuEntry(
-                        value: value,
-                        label: value.toString(),
-                      ),
-                    )
-                    .toList(),
-              ),
-              Row(
-                mainAxisAlignment: .start,
-                spacing: 10,
-                children: [
-                  DropdownMenu<ChangeMode>(
-                    width: 230,
-                    initialSelection: scheduler.changeMode,
-                    onSelected: (value) => setState(() {
-                      scheduler.changeMode = value ?? scheduler.changeMode;
-                    }),
-                    label: Text('Mode Ganti'),
-                    dropdownMenuEntries: ChangeMode.values
-                        .map<DropdownMenuEntry<ChangeMode>>(
-                          (value) => DropdownMenuEntry(
-                            value: value,
-                            label: value.humanize(),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  Visibility(
-                    visible: scheduler.changeMode == .faded,
-                    child: SizedBox(
-                      width: 120,
-                      child: TextFormField(
-                        decoration: InputDecoration(
-                          label: Text('fade out(seconds)'),
-                          border: OutlineInputBorder(),
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          FilteringTextInputFormatter.singleLineFormatter,
-                        ],
-                        keyboardType: .numberWithOptions(signed: false),
-                        initialValue: scheduler.changeDelay.inSeconds
-                            .toString(),
-                        validator: (value) {
-                          final valNum = int.tryParse(value ?? '');
-                          if (valNum == null) {
-                            return 'tidak valid';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) => setState(() {
-                          final delaySeconds = int.tryParse(value);
-                          if (delaySeconds != null) {
-                            scheduler.changeDelay = Duration(
-                              seconds: delaySeconds,
-                            );
-                          }
-                        }),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              TextFormField(
-                decoration: InputDecoration(
-                  label: Text(
-                    'Jumlah putar (0 berarti putar terus). default 1',
-                  ),
-                  border: OutlineInputBorder(),
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  FilteringTextInputFormatter.singleLineFormatter,
-                ],
-                keyboardType: .number,
-                initialValue: scheduler.loopCount.toString(),
-                validator: (value) {
-                  final valNum = int.tryParse(value ?? '');
-                  if (valNum == null || valNum < 0) {
-                    return 'tidak valid';
-                  }
-                  return null;
-                },
-                onChanged: (value) => setState(() {
-                  final loopCount = int.tryParse(value);
-                  if (loopCount != null) {
-                    scheduler.loopCount = loopCount;
-                  }
-                }),
-              ),
-              Visibility(
-                visible: schedulerMode != .once,
-                child: TextFormField(
-                  keyboardType: .datetime,
-                  readOnly: true,
-                  controller: dateRangeController,
-                  decoration: InputDecoration(
-                    label: Text('Tanggal Aktif'),
-                    border: OutlineInputBorder(),
-                  ),
-                  onTap: () {
-                    showDateRangePicker(
-                      context: context,
-                      initialDateRange: DateTimeRange(
-                        start: scheduler.startPeriod,
-                        end: scheduler.endPeriod,
-                      ),
-                      firstDate: DateTime.now(),
-                      currentDate: date,
-                      lastDate: DateTime(9999),
-                    ).then((pickDate) {
-                      if (pickDate != null) {
-                        scheduler.startPeriod = pickDate.start;
-                        scheduler.endPeriod = pickDate.end;
-                        dateController.text =
-                            "${DateFormat.yMd().format(period.start)} -${DateFormat.yMd().format(period.end)} ";
-                      }
-                    });
-                  },
-                ),
-              ),
-              Visibility(
-                visible: schedulerMode == .interval,
-                child: Row(
+      content: Scrollbar(
+        trackVisibility: true,
+        thumbVisibility: true,
+        controller: _scrollController,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: SizedBox(
+              width: 390,
+              child: Form(
+                key: _formState,
+                child: Column(
+                  crossAxisAlignment: .start,
+                  spacing: 10,
                   children: [
-                    DropdownMenu<String>(
-                      label: Text('Diulang Setiap'),
-                      width: 180,
-                      initialSelection: intervalMode,
+                    Row(
+                      spacing: 10,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () async {
+                            FilePickerResult? result = await FilePicker.platform
+                                .pickFiles(
+                                  type: .audio,
+                                  withReadStream: true,
+                                  withData: true,
+                                  dialogTitle: 'pilih musik',
+                                  allowMultiple: false,
+                                );
+                            if (result == null) {
+                              return;
+                            }
+                            final file = result.files.first;
+                            setState(() {
+                              scheduler.music = Music(
+                                sourceType: 'deviceFile',
+                                path: file.path!,
+                                title: file.name,
+                              );
+                            });
+                          },
+                          child: Text('pilih musik'),
+                        ),
+                        SizedBox(
+                          width: 240,
+                          child: Text(
+                            scheduler.music?.title ?? '',
+                            maxLines: 2,
+                            overflow: .ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Visibility(
+                      visible: scheduler.music == null,
+                      child: Text(
+                        'Musik harus dipilih',
+                        style: TextStyle(color: Colors.red.shade300),
+                      ),
+                    ),
+                    DropdownMenu<EnumSchedulerMode>(
+                      width: 250,
+                      initialSelection: schedulerMode,
                       onSelected: (value) => setState(() {
-                        intervalMode = value;
+                        schedulerMode = value ?? schedulerMode;
                       }),
-                      enableFilter: true,
-                      dropdownMenuEntries: ['jam', 'menit', 'hari']
-                          .map<DropdownMenuEntry<String>>(
-                            (value) =>
-                                DropdownMenuEntry(value: value, label: value),
+                      dropdownMenuEntries: EnumSchedulerMode.values
+                          .map<DropdownMenuEntry<EnumSchedulerMode>>(
+                            (value) => DropdownMenuEntry(
+                              value: value,
+                              label: value.toString(),
+                            ),
                           )
                           .toList(),
                     ),
-                    SizedBox(
-                      width: 120,
+                    Row(
+                      mainAxisAlignment: .start,
+                      spacing: 10,
+                      children: [
+                        DropdownMenu<ChangeMode>(
+                          width: 230,
+                          initialSelection: scheduler.changeMode,
+                          onSelected: (value) => setState(() {
+                            scheduler.changeMode =
+                                value ?? scheduler.changeMode;
+                          }),
+                          label: Text('Mode Ganti'),
+                          dropdownMenuEntries: ChangeMode.values
+                              .map<DropdownMenuEntry<ChangeMode>>(
+                                (value) => DropdownMenuEntry(
+                                  value: value,
+                                  label: value.humanize(),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        Visibility(
+                          visible: scheduler.changeMode == .faded,
+                          child: SizedBox(
+                            width: 120,
+                            child: TextFormField(
+                              decoration: InputDecoration(
+                                label: Text('fade out(seconds)'),
+                                border: OutlineInputBorder(),
+                              ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                FilteringTextInputFormatter.singleLineFormatter,
+                              ],
+                              keyboardType: .numberWithOptions(signed: false),
+                              initialValue: scheduler.changeDelay.inSeconds
+                                  .toString(),
+                              validator: (value) {
+                                final valNum = int.tryParse(value ?? '');
+                                if (valNum == null) {
+                                  return 'tidak valid';
+                                }
+                                return null;
+                              },
+                              onChanged: (value) => setState(() {
+                                final delaySeconds = int.tryParse(value);
+                                if (delaySeconds != null) {
+                                  scheduler.changeDelay = Duration(
+                                    seconds: delaySeconds,
+                                  );
+                                }
+                              }),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    TextFormField(
+                      decoration: InputDecoration(
+                        label: Text(
+                          'Jumlah putar (0 berarti putar terus). default 1',
+                        ),
+                        border: OutlineInputBorder(),
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        FilteringTextInputFormatter.singleLineFormatter,
+                      ],
+                      keyboardType: .number,
+                      initialValue: scheduler.loopCount.toString(),
+                      validator: (value) {
+                        final valNum = int.tryParse(value ?? '');
+                        if (valNum == null || valNum < 0) {
+                          return 'tidak valid';
+                        }
+                        return null;
+                      },
+                      onChanged: (value) => setState(() {
+                        final loopCount = int.tryParse(value);
+                        if (loopCount != null) {
+                          scheduler.loopCount = loopCount;
+                        }
+                      }),
+                    ),
+                    Visibility(
+                      visible: schedulerMode != .once,
                       child: TextFormField(
+                        keyboardType: .datetime,
+                        readOnly: true,
+                        controller: dateRangeController,
                         decoration: InputDecoration(
-                          label: Text('interval'),
+                          label: Text('Tanggal Aktif'),
                           border: OutlineInputBorder(),
                         ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          FilteringTextInputFormatter.singleLineFormatter,
-                        ],
-                        keyboardType: .numberWithOptions(signed: false),
-                        initialValue: intervalNum?.toString(),
-                        validator: (value) {
-                          final valNum = int.tryParse(value ?? '');
-                          if (valNum == null) {
-                            return 'tidak valid';
-                          }
-                          return null;
+                        onTap: () {
+                          showDateRangePicker(
+                            context: context,
+                            initialDateRange: DateTimeRange(
+                              start: scheduler.startPeriod,
+                              end: scheduler.endPeriod,
+                            ),
+                            firstDate: DateTime.now(),
+                            currentDate: date,
+                            lastDate: DateTime(9999),
+                          ).then((pickDate) {
+                            if (pickDate != null) {
+                              scheduler.startPeriod = pickDate.start;
+                              scheduler.endPeriod = pickDate.end;
+                              dateController.text =
+                                  "${period.start.format(pattern: 'dd/MM/y')} -${period.end.format(pattern: 'dd/MM/y')} ";
+                            }
+                          });
                         },
-                        onChanged: (value) => setState(() {
-                          intervalNum = int.tryParse(value);
-                        }),
+                      ),
+                    ),
+                    Visibility(
+                      visible: schedulerMode == .interval,
+                      child: Row(
+                        children: [
+                          DropdownMenu<String>(
+                            label: Text('Diulang Setiap'),
+                            width: 180,
+                            initialSelection: intervalMode,
+                            onSelected: (value) => setState(() {
+                              intervalMode = value;
+                            }),
+                            enableFilter: true,
+                            dropdownMenuEntries: ['jam', 'menit', 'hari']
+                                .map<DropdownMenuEntry<String>>(
+                                  (value) => DropdownMenuEntry(
+                                    value: value,
+                                    label: value,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          SizedBox(
+                            width: 120,
+                            child: TextFormField(
+                              decoration: InputDecoration(
+                                label: Text('interval'),
+                                border: OutlineInputBorder(),
+                              ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                FilteringTextInputFormatter.singleLineFormatter,
+                              ],
+                              keyboardType: .numberWithOptions(signed: false),
+                              initialValue: intervalNum?.toString(),
+                              validator: (value) {
+                                final valNum = int.tryParse(value ?? '');
+                                if (valNum == null) {
+                                  return 'tidak valid';
+                                }
+                                return null;
+                              },
+                              onChanged: (value) => setState(() {
+                                intervalNum = int.tryParse(value);
+                              }),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Visibility(
+                      visible: schedulerMode == .once,
+                      child: SizedBox(
+                        width: 250,
+                        child: TextFormField(
+                          readOnly: true,
+                          keyboardType: .datetime,
+                          controller: dateController,
+                          decoration: InputDecoration(
+                            label: Text('Tanggal'),
+                            border: OutlineInputBorder(),
+                          ),
+                          onTap: () {
+                            showDatePicker(
+                              context: context,
+                              firstDate: DateTime.now(),
+                              currentDate: date,
+                              lastDate: DateTime(9999),
+                            ).then((pickDate) {
+                              if (pickDate != null) {
+                                date = date.copyWith(
+                                  day: pickDate.day,
+                                  month: pickDate.month,
+                                  year: pickDate.year,
+                                );
+                                dateController.text = date.format(
+                                  pattern: 'dd/MM/y',
+                                );
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    Visibility(
+                      visible: schedulerMode == .perWeek,
+                      child: Wrap(
+                        children:
+                            [
+                                  'Senin',
+                                  'Selasa',
+                                  'Rabu',
+                                  'Kamis',
+                                  'Jumat',
+                                  'Sabtu',
+                                  'Minggu',
+                                ]
+                                .mapIndexed(
+                                  (index, value) => SizedBox(
+                                    width: 155,
+                                    child: CheckboxListTile(
+                                      title: Text(value),
+                                      titleAlignment: .center,
+                                      value: weeks.contains(index + 1),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          value == true
+                                              ? weeks.add(index + 1)
+                                              : weeks.remove(index + 1);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                      ),
+                    ),
+                    Visibility(
+                      visible: schedulerMode == .perMonth,
+                      child: SizedBox(
+                        width: 120,
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            label: Text('Setiap Hari'),
+                            border: OutlineInputBorder(),
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            FilteringTextInputFormatter.singleLineFormatter,
+                          ],
+                          keyboardType: .numberWithOptions(signed: false),
+                          initialValue: day.toString(),
+                          validator: (value) {
+                            final valNum = int.tryParse(value ?? '');
+                            if (valNum == null) {
+                              return 'tidak valid';
+                            }
+                            return null;
+                          },
+                          onChanged: (value) => setState(() {
+                            day = int.tryParse(value) ?? day;
+                          }),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 250,
+                      child: TextFormField(
+                        readOnly: true,
+                        keyboardType: .datetime,
+                        controller: timeController,
+                        decoration: InputDecoration(
+                          label: Text(
+                            schedulerMode == .interval
+                                ? 'Mulai Pukul'
+                                : 'Pukul',
+                          ),
+                          border: OutlineInputBorder(),
+                        ),
+                        onTap: () {
+                          showTimePicker(
+                            context: context,
+                            initialTime: time,
+                          ).then((pickDate) {
+                            if (pickDate != null) {
+                              time = pickDate;
+                              timeController.text = time.format24Hour();
+                            }
+                          });
+                        },
                       ),
                     ),
                   ],
                 ),
               ),
-              Visibility(
-                visible: schedulerMode == .once,
-                child: SizedBox(
-                  width: 250,
-                  child: TextFormField(
-                    readOnly: true,
-                    keyboardType: .datetime,
-                    controller: dateController,
-                    decoration: InputDecoration(
-                      label: Text('Tanggal'),
-                      border: OutlineInputBorder(),
-                    ),
-                    onTap: () {
-                      showDatePicker(
-                        context: context,
-                        firstDate: DateTime.now(),
-                        currentDate: date,
-                        lastDate: DateTime(9999),
-                      ).then((pickDate) {
-                        if (pickDate != null) {
-                          date = date.copyWith(
-                            day: pickDate.day,
-                            month: pickDate.month,
-                            year: pickDate.year,
-                          );
-                          dateController.text = DateFormat.yMd().format(date);
-                        }
-                      });
-                    },
-                  ),
-                ),
-              ),
-
-              Visibility(
-                visible: schedulerMode == .perWeek,
-                child: Wrap(
-                  children:
-                      [
-                            'Senin',
-                            'Selasa',
-                            'Rabu',
-                            'Kamis',
-                            'Jumat',
-                            'Sabtu',
-                            'Minggu',
-                          ]
-                          .mapIndexed(
-                            (index, value) => SizedBox(
-                              width: 155,
-                              child: CheckboxListTile(
-                                title: Text(value),
-                                titleAlignment: .center,
-                                value: weeks.contains(index + 1),
-                                onChanged: (value) {
-                                  setState(() {
-                                    value == true
-                                        ? weeks.add(index + 1)
-                                        : weeks.remove(index + 1);
-                                  });
-                                },
-                              ),
-                            ),
-                          )
-                          .toList(),
-                ),
-              ),
-              Visibility(
-                visible: schedulerMode == .perMonth,
-                child: SizedBox(
-                  width: 120,
-                  child: TextFormField(
-                    decoration: InputDecoration(
-                      label: Text('Setiap Hari'),
-                      border: OutlineInputBorder(),
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      FilteringTextInputFormatter.singleLineFormatter,
-                    ],
-                    keyboardType: .numberWithOptions(signed: false),
-                    initialValue: day.toString(),
-                    validator: (value) {
-                      final valNum = int.tryParse(value ?? '');
-                      if (valNum == null) {
-                        return 'tidak valid';
-                      }
-                      return null;
-                    },
-                    onChanged: (value) => setState(() {
-                      day = int.tryParse(value) ?? day;
-                    }),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 250,
-                child: TextFormField(
-                  readOnly: true,
-                  keyboardType: .datetime,
-                  controller: timeController,
-                  decoration: InputDecoration(
-                    label: Text(
-                      schedulerMode == .interval ? 'Mulai Pukul' : 'Pukul',
-                    ),
-                    border: OutlineInputBorder(),
-                  ),
-                  onTap: () {
-                    showTimePicker(context: context, initialTime: time).then((
-                      pickDate,
-                    ) {
-                      if (pickDate != null) {
-                        time = pickDate;
-                        timeController.text = time.format24Hour();
-                      }
-                    });
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

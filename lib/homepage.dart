@@ -15,6 +15,7 @@ import 'package:music_player_manager/playlist_card.dart';
 import 'package:music_player_manager/scheduler_card.dart';
 import 'package:music_player_manager/scheduler_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:music_player_manager/custom_type.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -287,7 +288,7 @@ class _MyHomePageState extends State<MyHomePage>
                           mainAxisAlignment: .spaceBetween,
                           children: [
                             Text(
-                              'List Musik: ${currentPlaylist.name}',
+                              'Antrian Musik: ${currentPlaylist.name}',
                               style: labelStyle,
                               textAlign: .center,
                             ),
@@ -425,7 +426,7 @@ class _MyHomePageState extends State<MyHomePage>
                               child: Row(
                                 mainAxisAlignment: .spaceBetween,
                                 children: [
-                                  Text('Scheduler', style: labelStyle),
+                                  Text('Jadwal', style: labelStyle),
                                   IconButton(
                                     onPressed: () {
                                       showScheduleForm(
