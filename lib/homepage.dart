@@ -192,10 +192,8 @@ class _MyHomePageState extends State<MyHomePage>
           } else {
             fadeMusic(scheduler.changeDelay, scheduler.music!);
           }
-        } else if (scheduler.changeMode == .musicCompleted) {
-          musicController.bookNextMusic = scheduler.music;
+          taskScheduler.loopCount -= 1;
         }
-        taskScheduler.loopCount -= 1;
         final result = taskSchedulers.remove(taskScheduler);
         debugPrint('result $result');
         if (isTaskScheduleEmpty(scheduler)) {

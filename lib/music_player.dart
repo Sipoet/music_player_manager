@@ -72,8 +72,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
 
   @override
   void setState(VoidCallback fn) {
-    // Subscriptions only can be closed asynchronously,
-    // therefore events can occur after widget has been disposed.
     if (mounted) {
       super.setState(fn);
     }
@@ -121,11 +119,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
       controller.play(taskScheduler.music);
       taskScheduler.loopCount -= 1;
       widget.onNextMusic?.call(taskScheduler.music);
-    } else if (controller.bookNextMusic != null) {
-      debugPrint('masuk book music');
-      controller.play(controller.bookNextMusic!);
-      controller.bookNextMusic = null;
-      widget.onNextMusic?.call(controller.bookNextMusic!);
     } else {
       debugPrint('masuk player repeat mode');
       playlist.next(repeatMode).then((Music? music) {

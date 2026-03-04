@@ -15,7 +15,6 @@ class MusicController extends ChangeNotifier {
 
   Music? get currentMusic => _currentMusic;
   TaskScheduler? taskScheduler;
-  Music? bookNextMusic;
   @override
   void dispose() async {
     await player.stop();
