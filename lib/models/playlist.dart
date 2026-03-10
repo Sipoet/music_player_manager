@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/music.dart';
+export 'package:music_player_manager/models/music.dart';
 
 class Playlist {
   String name;
@@ -11,7 +12,12 @@ class Playlist {
 
   bool get hasNext => currentIndex + 1 < musics.length;
   bool get hasPrevious => currentIndex > 0;
-  Music? get currentMusic => musics.elementAtOrNull(currentIndex);
+  Music? get currentMusic {
+    if (currentIndex == -1 && musics.isNotEmpty) {
+      currentIndex = 0;
+    }
+    return musics.elementAtOrNull(currentIndex);
+  }
 
   Map asJson() {
     return {
@@ -87,6 +93,34 @@ enum RepeatMode {
 
   @override
   String toString() => super.toString().split('.').last;
+
+  static RepeatMode fromString(String value) {
+    switch (value.trim()) {
+      case 'disabled':
+        return disabled;
+      case 'one':
+        return one;
+      case 'all':
+        return all;
+      case 'shuffle':
+        return shuffle;
+      default:
+        throw '$value is not valid repeat mode';
+    }
+  }
+
+  String get humanize {
+    switch (this) {
+      case disabled:
+        return 'Tidak berulang';
+      case one:
+        return 'Berulang 1 musik';
+      case all:
+        return 'Berulang semua musik';
+      case shuffle:
+        return 'acak';
+    }
+  }
 
   Icon get icon {
     switch (this) {

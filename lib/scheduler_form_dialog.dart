@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:music_player_manager/models/music.dart';
+import 'package:music_player_manager/models/playlist.dart';
 import 'package:music_player_manager/models/scheduler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -8,10 +8,12 @@ import 'package:music_player_manager/custom_type.dart';
 
 class SchedulerFormDialog extends StatefulWidget {
   final Scheduler scheduler;
+  final List<Playlist> playlists;
   final void Function(Scheduler scheduler) onSaved;
   final void Function(Scheduler scheduler) onCancel;
   const SchedulerFormDialog({
     required this.scheduler,
+    required this.playlists,
     required this.onSaved,
     required this.onCancel,
     super.key,
@@ -26,8 +28,9 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   DateTime datetime = DateTime.now();
   DateTime date = DateTime.now();
   TimeOfDay time = TimeOfDay.now();
-  EnumSchedulerMode? schedulerMode;
+  SchedulingMode? schedulerMode;
   String? intervalMode;
+
   int? intervalNum;
   int day = 1;
   Set<int> weeks = {};
@@ -36,8 +39,10 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   final dateController = TextEditingController();
   final timeController = TextEditingController();
   final _scrollController = ScrollController();
+  late final List<Playlist> playlists;
   late DateTimeRange period;
   bool isNewRecord = false;
+  late MusicMode musicMode;
 
   @override
   void initState() {
@@ -48,8 +53,10 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
       start: scheduler.startPeriod,
       end: scheduler.endPeriod,
     );
+    playlists = widget.playlists.where((e) => e.musics.isNotEmpty).toList();
+    musicMode = scheduler.playlist == null ? .music : .playlist;
     final mode = scheduler.mode;
-    schedulerMode = EnumSchedulerMode.fromMode(mode);
+    schedulerMode = SchedulingMode.fromMode(mode);
     if (mode is OnceSchedulerMode) {
       datetime = mode.datetime;
       date = mode.datetime;
@@ -93,42 +100,97 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                   crossAxisAlignment: .start,
                   spacing: 10,
                   children: [
-                    Row(
-                      spacing: 10,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            FilePickerResult? result = await FilePicker.platform
-                                .pickFiles(
-                                  type: .audio,
-                                  withReadStream: true,
-                                  withData: true,
-                                  dialogTitle: 'pilih musik',
-                                  allowMultiple: false,
-                                );
-                            if (result == null) {
-                              return;
-                            }
-                            final file = result.files.first;
-                            setState(() {
-                              scheduler.music = Music(
-                                sourceType: 'deviceFile',
-                                path: file.path!,
-                                title: file.name,
-                              );
-                            });
-                          },
-                          child: Text('pilih musik'),
-                        ),
-                        SizedBox(
-                          width: 240,
-                          child: Text(
-                            scheduler.music?.title ?? '',
-                            maxLines: 2,
-                            overflow: .ellipsis,
+                    RadioGroup<MusicMode>(
+                      groupValue: musicMode,
+                      onChanged: (value) => setState(() {
+                        if (value == null) {
+                          return;
+                        }
+                        musicMode = value;
+                        if (musicMode == .music) {
+                          scheduler.playlist = null;
+                        } else {
+                          scheduler.music = null;
+                        }
+                      }),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 180,
+                            child: RadioListTile<MusicMode>(
+                              value: .music,
+                              title: Text('Musik'),
+                            ),
                           ),
-                        ),
-                      ],
+                          SizedBox(
+                            width: 180,
+                            child: RadioListTile<MusicMode>(
+                              value: .playlist,
+                              title: Text('Playlist'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Visibility(
+                      visible: musicMode == .playlist,
+                      child: DropdownMenu<Playlist>(
+                        label: Text('Pilih Playlist'),
+                        width: 250,
+                        initialSelection: scheduler.playlist,
+                        onSelected: (newPlaylist) => setState(() {
+                          scheduler.playlist = newPlaylist;
+                        }),
+                        dropdownMenuEntries: playlists
+                            .map(
+                              (playlist) => DropdownMenuEntry<Playlist>(
+                                value: playlist,
+                                label: playlist.name,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                    Visibility(
+                      visible: musicMode == .music,
+                      child: Row(
+                        spacing: 10,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () async {
+                              FilePickerResult? result = await FilePicker
+                                  .platform
+                                  .pickFiles(
+                                    type: .audio,
+                                    withReadStream: true,
+                                    withData: true,
+                                    dialogTitle: 'pilih musik',
+                                    allowMultiple: false,
+                                  );
+                              if (result == null) {
+                                return;
+                              }
+                              final file = result.files.first;
+                              setState(() {
+                                scheduler.music = Music(
+                                  sourceType: 'deviceFile',
+                                  path: file.path!,
+                                  title: file.name,
+                                );
+                              });
+                            },
+                            child: Text('pilih musik'),
+                          ),
+                          SizedBox(
+                            width: 240,
+                            child: Text(
+                              scheduler.music?.title ?? '',
+                              maxLines: 2,
+                              overflow: .ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     Visibility(
                       visible: scheduler.music == null,
@@ -137,14 +199,14 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                         style: TextStyle(color: Colors.red.shade300),
                       ),
                     ),
-                    DropdownMenu<EnumSchedulerMode>(
+                    DropdownMenu<SchedulingMode>(
                       width: 250,
                       initialSelection: schedulerMode,
                       onSelected: (value) => setState(() {
                         schedulerMode = value ?? schedulerMode;
                       }),
-                      dropdownMenuEntries: EnumSchedulerMode.values
-                          .map<DropdownMenuEntry<EnumSchedulerMode>>(
+                      dropdownMenuEntries: SchedulingMode.values
+                          .map<DropdownMenuEntry<SchedulingMode>>(
                             (value) => DropdownMenuEntry(
                               value: value,
                               label: value.toString(),
@@ -494,7 +556,7 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
   }
 }
 
-enum EnumSchedulerMode {
+enum SchedulingMode {
   once,
   interval,
   perWeek,
@@ -514,7 +576,7 @@ enum EnumSchedulerMode {
     }
   }
 
-  static EnumSchedulerMode fromMode(SchedulerMode mode) {
+  static SchedulingMode fromMode(SchedulerMode mode) {
     if (mode is OnceSchedulerMode) {
       return once;
     } else if (mode is IntervalSchedulerMode) {
@@ -528,3 +590,5 @@ enum EnumSchedulerMode {
     }
   }
 }
+
+enum MusicMode { music, playlist }

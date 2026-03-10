@@ -1,7 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:music_player_manager/custom_type.dart';
-import 'package:music_player_manager/models/music.dart';
+import 'package:music_player_manager/models/playlist.dart';
 import 'package:uuid/uuid.dart';
 
 abstract class SchedulerMode {
@@ -21,6 +21,7 @@ class OnceSchedulerMode extends SchedulerMode {
     return [
       TaskScheduler(
         datetime: datetime,
+        playlist: scheduler.playlist,
         loopCount: scheduler.loopCount,
         music: scheduler.music!,
         schedulerId: scheduler.id,
@@ -83,6 +84,7 @@ class IntervalSchedulerMode extends SchedulerMode {
       result.add(
         TaskScheduler(
           datetime: startPeriod,
+          playlist: scheduler.playlist,
           loopCount: scheduler.loopCount,
           music: scheduler.music!,
           schedulerId: scheduler.id,
@@ -121,6 +123,7 @@ class WeekSchedulerMode extends SchedulerMode {
         result.add(
           TaskScheduler(
             datetime: startPeriod,
+            playlist: scheduler.playlist,
             loopCount: scheduler.loopCount,
             music: scheduler.music!,
             schedulerId: scheduler.id,
@@ -187,6 +190,7 @@ class MonthSchedulerMode extends SchedulerMode {
       result.add(
         TaskScheduler(
           datetime: startPeriod,
+          playlist: scheduler.playlist,
           loopCount: scheduler.loopCount,
           music: scheduler.music!,
           schedulerId: scheduler.id,
@@ -244,24 +248,39 @@ class Scheduler {
   SchedulerMode mode;
   Duration changeDelay;
   ChangeMode changeMode;
-  Music? music;
+  Music? _music;
   int loopCount;
   DateTime updatedAt;
   bool isExpired = false;
+  Playlist? playlist;
   Scheduler({
     required this.startPeriod,
     required this.endPeriod,
+    this.isExpired = false,
     this.changeDelay = const Duration(seconds: 0),
     this.loopCount = 1,
     this.changeMode = .faded,
-    this.music,
+    Music? music,
+    this.playlist,
     required this.mode,
   }) : id = uuid.v4(),
+       _music = music,
        updatedAt = DateTime.now();
 
   String get description => mode.description;
   List<TaskScheduler> generateTask() {
     return mode.generateTask(this);
+  }
+
+  Music? get music {
+    if (playlist != null) {
+      _music = playlist!.currentMusic;
+    }
+    return _music;
+  }
+
+  set music(Music? value) {
+    _music = value;
   }
 
   Map asJson() {
@@ -272,6 +291,7 @@ class Scheduler {
       'changeMode': changeMode.toString(),
       'music': music?.asJson(),
       'mode': mode.asJson(),
+      'isExpired': isExpired,
     };
   }
 
@@ -283,6 +303,7 @@ class Scheduler {
       changeMode: ChangeMode.fromString(json['changeMode']),
       music: Music.fromJson(json['music']),
       mode: schedulerModeFromJson(json['mode']),
+      isExpired: json['isExpired'],
     );
   }
 
@@ -315,6 +336,7 @@ class Scheduler {
 class TaskScheduler {
   String schedulerId;
   final DateTime datetime;
+  Playlist? playlist;
   final Music music;
   int loopCount;
 
@@ -322,6 +344,7 @@ class TaskScheduler {
     required this.datetime,
     required this.schedulerId,
     required this.music,
+    this.playlist,
     this.loopCount = 1,
   });
 }

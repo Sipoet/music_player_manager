@@ -25,7 +25,9 @@ class SchedulerCard extends StatelessWidget {
         icon: Icon(Icons.delete),
       ),
       title: Text(
-        scheduler.music?.title ?? '',
+        scheduler.playlist == null
+            ? scheduler.music?.title ?? ""
+            : "Playlist ${scheduler.playlist?.name}",
         style: TextStyle(
           color: scheduler.isExpired ? Colors.grey.shade400 : Colors.black,
         ),

@@ -36,7 +36,9 @@ class _MusicCardState extends State<MusicCard> {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: controller.isPlay(music)
+      leading: widget.onPlayPressed == null
+          ? null
+          : controller.isPlay(music)
           ? IconButton(
               onPressed: () => setState(() {
                 controller.pause();
@@ -47,7 +49,7 @@ class _MusicCardState extends State<MusicCard> {
               onPressed: () => setState(() {
                 controller.play(music);
                 controller.taskScheduler = null;
-                widget.onPlayPressed?.call(music, controller);
+                widget.onPlayPressed!.call(music, controller);
               }),
               icon: Icon(Icons.play_arrow),
             ),

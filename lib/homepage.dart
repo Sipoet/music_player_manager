@@ -35,6 +35,7 @@ class _MyHomePageState extends State<MyHomePage>
   List<Playlist> playlists = [];
   List<TaskScheduler> taskSchedulers = [];
   Map<int, FocusNode> focusNodes = {};
+  RepeatMode repeatMode = .all;
 
   final _schedulerScrollController = ScrollController();
   final _musicScrollController = ScrollController();
@@ -56,6 +57,15 @@ class _MyHomePageState extends State<MyHomePage>
         taskSchedulers.addAll(scheduler.generateTask());
       }
     });
+    storage
+        .getString('repeatMode')
+        .then(
+          (value) => setState(() {
+            if (value != null) {
+              repeatMode = RepeatMode.fromString(value);
+            }
+          }),
+        );
     storage.getStringList('playlists').then((data) {
       if (data == null) return;
       setState(() {
@@ -86,7 +96,107 @@ class _MyHomePageState extends State<MyHomePage>
     super.initState();
   }
 
-  void addMusic() async {
+  void addPlaylist() {
+    final playlist = Playlist();
+    showPlaylistForm(playlist).then((value) {
+      if (value != null) {
+        setState(() {
+          playlists.add(value);
+        });
+      }
+    });
+  }
+
+  final _formState = GlobalKey<FormState>();
+  Future<Playlist?> showPlaylistForm(Playlist playlist) {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        final navigator = Navigator.of(context);
+        final beforeMusics = playlist.musics;
+        final beforeName = playlist.name;
+        return StatefulBuilder(
+          builder: (context, setStateDialog) => AlertDialog(
+            title: Text('Form Playlist'),
+            content: SizedBox(
+              width: 350,
+              child: Center(
+                child: Form(
+                  key: _formState,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        initialValue: playlist.name,
+                        onChanged: (value) => playlist.name = value,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'harus diisi';
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          label: Text('Nama'),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      Align(
+                        alignment: .topRight,
+                        child: IconButton(
+                          onPressed: () => addMusic(playlist).then(
+                            (val) => setStateDialog(() {
+                              playlist.musics;
+                            }),
+                          ),
+                          icon: Icon(Icons.add),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView(
+                          children: playlist.musics
+                              .map(
+                                (music) => MusicCard(
+                                  music: music,
+                                  controller: musicController,
+                                  onDeletePressed: (music, controller) =>
+                                      setStateDialog(
+                                        () => playlist.removeMusic(music),
+                                      ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  if (_formState.currentState?.validate() == true) {
+                    navigator.pop(playlist);
+                  }
+                },
+                child: Text('Simpan'),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  playlist.musics = beforeMusics;
+                  playlist.name = beforeName;
+                  navigator.pop();
+                },
+                child: Text('Batal'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future addMusic(Playlist playlist) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: .audio,
       withReadStream: true,
@@ -99,7 +209,7 @@ class _MyHomePageState extends State<MyHomePage>
     }
     setState(() {
       for (final file in result.files) {
-        currentPlaylist.addMusic(
+        playlist.addMusic(
           Music(sourceType: 'deviceFile', path: file.path!, title: file.name),
         );
       }
@@ -117,6 +227,7 @@ class _MyHomePageState extends State<MyHomePage>
         final navigator = Navigator.of(context);
         return SchedulerFormDialog(
           scheduler: scheduler,
+          playlists: playlists,
           onSaved: (scheduler) => navigator.pop(scheduler),
           onCancel: (scheduler) => navigator.pop(null),
         );
@@ -138,6 +249,7 @@ class _MyHomePageState extends State<MyHomePage>
           .toList(),
     );
     storage.setString('currentPlaylist', jsonEncode(currentPlaylist.asJson()));
+    storage.setString('repeatMode', repeatMode.toString());
   }
 
   @override
@@ -186,6 +298,11 @@ class _MyHomePageState extends State<MyHomePage>
           continue;
         }
         musicController.taskScheduler = taskScheduler;
+        if (scheduler.playlist != null) {
+          setState(() {
+            currentPlaylist = scheduler.playlist!;
+          });
+        }
         debugPrint('run task schedule');
         if (scheduler.changeMode == .faded) {
           if (scheduler.changeDelay.inMilliseconds == 0) {
@@ -293,7 +410,7 @@ class _MyHomePageState extends State<MyHomePage>
                               textAlign: .center,
                             ),
                             IconButton(
-                              onPressed: addMusic,
+                              onPressed: () => addMusic(currentPlaylist),
                               icon: Icon(Icons.add),
                             ),
                           ],
@@ -342,6 +459,8 @@ class _MyHomePageState extends State<MyHomePage>
                         child: MusicPlayer(
                           controller: musicController,
                           playlist: currentPlaylist,
+                          repeatMode: repeatMode,
+                          onRepeatModeChange: (value) => repeatMode = value,
                           onNextMusic: (music) => focusOnMusicCard(music),
                           onPrevMusic: (music) => focusOnMusicCard(music),
                         ),
@@ -373,7 +492,7 @@ class _MyHomePageState extends State<MyHomePage>
                               children: [
                                 Text('Playlist', style: labelStyle),
                                 IconButton(
-                                  onPressed: () {},
+                                  onPressed: addPlaylist,
                                   icon: Icon(Icons.add),
                                 ),
                               ],
@@ -385,14 +504,35 @@ class _MyHomePageState extends State<MyHomePage>
                               thumbVisibility: true,
                               trackVisibility: true,
                               controller: _playlistScrollController,
-                              child: ListView(
+                              child: ListView.separated(
                                 controller: _playlistScrollController,
-                                children: playlists
-                                    .map<PlaylistCard>(
-                                      (playlist) =>
-                                          PlaylistCard(playlist: playlist),
-                                    )
-                                    .toList(),
+                                separatorBuilder: (context, index) =>
+                                    const SizedBox(height: 10),
+                                itemCount: playlists.length,
+                                itemBuilder: (context, index) => PlaylistCard(
+                                  playlist: playlists[index],
+                                  isPlaylistPlaying:
+                                      currentPlaylist == playlists[index] &&
+                                      musicController.isPlaying,
+                                  onDeletePressed: (playlist) => setState(() {
+                                    playlists.remove(playlist);
+                                  }),
+                                  onPlayPressed: (playlist) => setState(() {
+                                    currentPlaylist = playlist;
+                                    if (currentPlaylist.musics.isEmpty) {
+                                      return;
+                                    }
+                                    musicController.play(
+                                      currentPlaylist.currentMusic!,
+                                    );
+                                  }),
+                                  onEditPressed: (playlist) =>
+                                      showPlaylistForm(playlist).then((value) {
+                                        if (value != null) {
+                                          playlists[index] = value;
+                                        }
+                                      }),
+                                ),
                               ),
                             ),
                           ),
@@ -405,7 +545,7 @@ class _MyHomePageState extends State<MyHomePage>
                         if (datetime.second == 1) {
                           checkMusicSchedule();
                         }
-                        if (datetime.minute == 0) {
+                        if (datetime.minute % 15 == 0) {
                           saveValue();
                         }
                       },

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:music_player_manager/models/music.dart';
 import 'package:music_player_manager/models/playlist.dart';
 export 'package:music_player_manager/models/playlist.dart';
 import 'dart:async';
@@ -10,12 +9,14 @@ class MusicPlayer extends StatefulWidget {
   final MusicController controller;
   final Playlist playlist;
   final RepeatMode repeatMode;
+  final void Function(RepeatMode repeatMode)? onRepeatModeChange;
   final void Function(Music music)? onNextMusic;
   final void Function(Music music)? onPrevMusic;
   const MusicPlayer({
     super.key,
     this.onNextMusic,
     this.onPrevMusic,
+    this.onRepeatModeChange,
     required this.controller,
     required this.playlist,
     this.repeatMode = .all,
@@ -107,6 +108,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
       index = 0;
     }
     repeatMode = values[index];
+    widget.onRepeatModeChange?.call(repeatMode);
   }
 
   void nextMusic() {
@@ -180,7 +182,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
               onPressed: () => setState(() {
                 toggleRepeat();
               }),
-              tooltip: 'Mode Ulang',
+              tooltip: repeatMode.humanize,
               icon: repeatMode.icon,
             ),
           ],
