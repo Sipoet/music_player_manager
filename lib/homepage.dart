@@ -33,8 +33,6 @@ class _MyHomePageState extends State<MyHomePage>
   List<Scheduler> schedulers = [];
   List<Playlist> playlists = [];
   List<TaskScheduler> taskSchedulers = [];
-  Map<int, FocusNode> focusNodes = {};
-  RepeatMode repeatMode = .all;
 
   final _schedulerScrollController = ScrollController();
   final _musicScrollController = ScrollController();
@@ -61,7 +59,7 @@ class _MyHomePageState extends State<MyHomePage>
         .then(
           (value) => setState(() {
             if (value != null) {
-              repeatMode = RepeatMode.fromString(value);
+              musicController.repeatMode = RepeatMode.fromString(value);
             }
           }),
         );
@@ -72,23 +70,20 @@ class _MyHomePageState extends State<MyHomePage>
             .map<Playlist>((json) => Playlist.fromJson(jsonDecode(json)))
             .toList();
       });
-    });
-    storage.getString('currentPlaylist').then((data) {
-      if (data == null) return;
-      setState(() {
-        setCurrentPlaylist(Playlist.fromJson(jsonDecode(data)));
-        if (musicController.currentPlaylist.currentMusic != null) {
-          musicController.setMusic(
-            musicController.currentPlaylist.currentMusic!,
-          );
-        }
-        for (
-          int i = 0;
-          i < musicController.currentPlaylist.musics.length;
-          i++
-        ) {
-          focusNodes[i] = FocusNode();
-        }
+      storage.getString('currentPlaylistId').then((playlistId) {
+        if (playlistId == null) return;
+        setState(() {
+          musicController.currentPlaylist =
+              playlists.firstWhereOrNull(
+                (playlist) => playlist.id == playlistId,
+              ) ??
+              musicController.currentPlaylist;
+          if (musicController.currentPlaylist.currentMusic != null) {
+            musicController.setMusic(
+              musicController.currentPlaylist.currentMusic!,
+            );
+          }
+        });
       });
     });
 
@@ -102,6 +97,10 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void setCurrentPlaylist(Playlist playlist) {
+    if (playlist.musics.isNotEmpty &&
+        musicController.currentPlaylist.id != playlist.id) {
+      playlist.currentIndex = 0;
+    }
     musicController.currentPlaylist = playlist;
   }
 
@@ -257,11 +256,8 @@ class _MyHomePageState extends State<MyHomePage>
           .map<String>((playlist) => jsonEncode(playlist.asJson()))
           .toList(),
     );
-    storage.setString(
-      'currentPlaylist',
-      jsonEncode(musicController.currentPlaylist.asJson()),
-    );
-    storage.setString('repeatMode', repeatMode.toString());
+    storage.setString('currentPlaylistId', musicController.currentPlaylist.id);
+    storage.setString('repeatMode', musicController.repeatMode.toString());
   }
 
   @override
@@ -443,7 +439,6 @@ class _MyHomePageState extends State<MyHomePage>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               return Focus(
-                                focusNode: focusNodes[index],
                                 onFocusChange: (hasFocus) {
                                   // if (hasFocus) {
                                   debugPrint('has focus $hasFocus $index');
@@ -478,8 +473,6 @@ class _MyHomePageState extends State<MyHomePage>
                         height: 150,
                         child: MusicPlayer(
                           controller: musicController,
-                          repeatMode: repeatMode,
-                          onRepeatModeChange: (value) => repeatMode = value,
                           onNextMusic: (music) => focusOnMusicCard(music),
                           onPrevMusic: (music) => focusOnMusicCard(music),
                         ),

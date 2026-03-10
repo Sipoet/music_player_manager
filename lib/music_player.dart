@@ -7,17 +7,13 @@ import 'package:music_player_manager/music_controller.dart';
 
 class MusicPlayer extends StatefulWidget {
   final MusicController controller;
-  final RepeatMode repeatMode;
-  final void Function(RepeatMode repeatMode)? onRepeatModeChange;
   final void Function(Music music)? onNextMusic;
   final void Function(Music music)? onPrevMusic;
   const MusicPlayer({
     super.key,
     this.onNextMusic,
     this.onPrevMusic,
-    this.onRepeatModeChange,
     required this.controller,
-    this.repeatMode = .all,
   });
 
   @override
@@ -29,7 +25,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
   AudioPlayer get player => widget.controller.player;
   Music? get music => widget.controller.currentMusic;
   Playlist get playlist => widget.controller.currentPlaylist;
-  late RepeatMode repeatMode;
   Duration? _duration;
   Duration? _position;
   StreamSubscription? _durationSubscription;
@@ -42,7 +37,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
   String get _positionText => _position?.toString().split('.').first ?? '';
   @override
   void initState() {
-    repeatMode = widget.repeatMode;
     controller.addListener(() {
       setState(() {});
     });
@@ -101,12 +95,11 @@ class _MusicPlayerState extends State<MusicPlayer> {
 
   void toggleRepeat() {
     final values = RepeatMode.values;
-    int index = values.indexOf(repeatMode) + 1;
+    int index = values.indexOf(controller.repeatMode) + 1;
     if (index >= values.length) {
       index = 0;
     }
-    repeatMode = values[index];
-    widget.onRepeatModeChange?.call(repeatMode);
+    controller.repeatMode = values[index];
   }
 
   void nextMusic() {
@@ -121,7 +114,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
       widget.onNextMusic?.call(taskScheduler.music);
     } else {
       debugPrint('masuk player repeat mode');
-      playlist.next(repeatMode).then((Music? music) {
+      playlist.next(controller.repeatMode).then((Music? music) {
         if (music != null) {
           controller.play(music);
           widget.onPrevMusic?.call(music);
@@ -168,7 +161,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
               icon: Icon(Icons.stop),
             ),
             IconButton(
-              onPressed: !playlist.hasNext && repeatMode == .disabled
+              onPressed: !playlist.hasNext && controller.repeatMode == .disabled
                   ? null
                   : () {
                       nextMusic();
@@ -180,8 +173,8 @@ class _MusicPlayerState extends State<MusicPlayer> {
               onPressed: () => setState(() {
                 toggleRepeat();
               }),
-              tooltip: repeatMode.humanize,
-              icon: repeatMode.icon,
+              tooltip: controller.repeatMode.humanize,
+              icon: controller.repeatMode.icon,
             ),
           ],
         ),

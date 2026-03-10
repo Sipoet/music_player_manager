@@ -39,9 +39,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
         onPressed: () => widget.onPlayPressed?.call(widget.playlist),
         icon: Icon(
           Icons.play_circle,
-          color:
-              widget.musicController.currentPlaylist.name ==
-                  widget.playlist.name
+          color: widget.musicController.currentPlaylist.id == widget.playlist.id
               ? Colors.black
               : Colors.grey,
         ),

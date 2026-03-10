@@ -1,14 +1,23 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/music.dart';
+import 'package:uuid/uuid.dart';
 export 'package:music_player_manager/models/music.dart';
+
+final uuid = Uuid();
 
 class Playlist {
   String name;
+  String id;
   List<Music> musics = [];
   int currentIndex;
-  Playlist({this.name = '', this.currentIndex = -1, List<Music>? musics})
-    : musics = musics ?? [];
+  Playlist({
+    this.name = '',
+    this.currentIndex = -1,
+    List<Music>? musics,
+    String? id,
+  }) : musics = musics ?? [],
+       id = id ?? uuid.v4();
 
   bool get hasNext => currentIndex + 1 < musics.length;
   bool get hasPrevious => currentIndex > 0;
@@ -24,6 +33,7 @@ class Playlist {
       'name': name,
       'currentIndex': currentIndex,
       'musics': musics.map((music) => music.asJson()).toList(),
+      'id': id,
     };
   }
 
@@ -31,6 +41,7 @@ class Playlist {
     return Playlist(
       name: json['name'],
       currentIndex: json['currentIndex'],
+      id: json['id'],
       musics: (json['musics'] as List)
           .map<Music>((data) => Music.fromJson(data))
           .toList(),

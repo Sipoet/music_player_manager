@@ -13,15 +13,13 @@ class MusicController extends ChangeNotifier {
   bool isPlay(Music music) => music.title == currentMusic?.title && isPlaying;
   Music? _currentMusic;
   Playlist _currentPlaylist = Playlist(name: 'Main');
+  RepeatMode repeatMode = .all;
 
   Music? get currentMusic => _currentMusic;
   TaskScheduler? taskScheduler;
   Playlist get currentPlaylist => _currentPlaylist;
 
   set currentPlaylist(Playlist playlist) {
-    if (_currentPlaylist.musics.isNotEmpty) {
-      _currentPlaylist.currentIndex = 0;
-    }
     _currentPlaylist = playlist;
     notifyListeners();
   }
