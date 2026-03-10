@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:music_player_manager/models/music.dart';
+import 'package:music_player_manager/models/playlist.dart';
 import 'package:music_player_manager/models/scheduler.dart';
 
 class MusicController extends ChangeNotifier {
@@ -12,9 +12,20 @@ class MusicController extends ChangeNotifier {
   bool get isPause => player.state == PlayerState.paused;
   bool isPlay(Music music) => music.title == currentMusic?.title && isPlaying;
   Music? _currentMusic;
+  Playlist _currentPlaylist = Playlist(name: 'Main');
 
   Music? get currentMusic => _currentMusic;
   TaskScheduler? taskScheduler;
+  Playlist get currentPlaylist => _currentPlaylist;
+
+  set currentPlaylist(Playlist playlist) {
+    if (_currentPlaylist.musics.isNotEmpty) {
+      _currentPlaylist.currentIndex = 0;
+    }
+    _currentPlaylist = playlist;
+    notifyListeners();
+  }
+
   @override
   void dispose() async {
     await player.stop();

@@ -262,8 +262,9 @@ class Scheduler {
     this.changeMode = .faded,
     Music? music,
     this.playlist,
+    String? id,
     required this.mode,
-  }) : id = uuid.v4(),
+  }) : id = id ?? uuid.v4(),
        _music = music,
        updatedAt = DateTime.now();
 
@@ -291,6 +292,8 @@ class Scheduler {
       'changeMode': changeMode.toString(),
       'music': music?.asJson(),
       'mode': mode.asJson(),
+      'playlist': playlist?.asJson(),
+      'id': id,
       'isExpired': isExpired,
     };
   }
@@ -301,9 +304,13 @@ class Scheduler {
       endPeriod: DateTime.parse(json['endPeriod']),
       changeDelay: Duration(seconds: json['changeDelaySeconds'] ?? 0),
       changeMode: ChangeMode.fromString(json['changeMode']),
-      music: Music.fromJson(json['music']),
+      music: json['music'] == null ? null : Music.fromJson(json['music']),
       mode: schedulerModeFromJson(json['mode']),
       isExpired: json['isExpired'],
+      playlist: json['playlist'] == null
+          ? null
+          : Playlist.fromJson(json['playlist']),
+      id: json['id'],
     );
   }
 

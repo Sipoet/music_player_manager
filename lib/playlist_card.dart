@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/playlist.dart';
 export 'package:music_player_manager/models/playlist.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:music_player_manager/music_controller.dart';
 
-class PlaylistCard extends StatelessWidget {
+class PlaylistCard extends StatefulWidget {
   final Playlist playlist;
-  final bool isPlaylistPlaying;
+  final MusicController musicController;
   final void Function(Playlist playlist)? onPlayPressed;
   final void Function(Playlist playlist)? onEditPressed;
   final void Function(Playlist playlist)? onDeletePressed;
@@ -13,33 +14,50 @@ class PlaylistCard extends StatelessWidget {
     super.key,
     this.onEditPressed,
     this.onPlayPressed,
-    this.isPlaylistPlaying = false,
+    required this.musicController,
     required this.playlist,
     this.onDeletePressed,
   });
 
   @override
+  State<PlaylistCard> createState() => _PlaylistCardState();
+}
+
+class _PlaylistCardState extends State<PlaylistCard> {
+  @override
+  void initState() {
+    widget.musicController.addListener(() {
+      setState(() {});
+    });
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: IconButton(
-        onPressed: () => onPlayPressed?.call(playlist),
+        onPressed: () => widget.onPlayPressed?.call(widget.playlist),
         icon: Icon(
           Icons.play_circle,
-          color: isPlaylistPlaying ? Colors.black : Colors.grey,
+          color:
+              widget.musicController.currentPlaylist.name ==
+                  widget.playlist.name
+              ? Colors.black
+              : Colors.grey,
         ),
       ),
-      title: Text(playlist.name),
+      title: Text(widget.playlist.name),
       subtitle: Row(
         children: [
           IconButton(
-            onPressed: () => onEditPressed?.call(playlist),
+            onPressed: () => widget.onEditPressed?.call(widget.playlist),
             icon: Icon(Icons.edit),
           ),
         ],
       ),
       trailing: IconButton(
         onPressed: () {
-          onDeletePressed?.call(playlist);
+          widget.onDeletePressed?.call(widget.playlist);
         },
         icon: Icon(Icons.delete),
       ),
@@ -59,7 +77,7 @@ class PlaylistCard extends StatelessWidget {
     }
 
     for (final file in result.files) {
-      playlist.addMusic(
+      widget.playlist.addMusic(
         Music(sourceType: 'deviceFile', path: file.path!, title: file.name),
       );
     }

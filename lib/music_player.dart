@@ -7,7 +7,6 @@ import 'package:music_player_manager/music_controller.dart';
 
 class MusicPlayer extends StatefulWidget {
   final MusicController controller;
-  final Playlist playlist;
   final RepeatMode repeatMode;
   final void Function(RepeatMode repeatMode)? onRepeatModeChange;
   final void Function(Music music)? onNextMusic;
@@ -18,7 +17,6 @@ class MusicPlayer extends StatefulWidget {
     this.onPrevMusic,
     this.onRepeatModeChange,
     required this.controller,
-    required this.playlist,
     this.repeatMode = .all,
   });
 
@@ -30,7 +28,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
   MusicController get controller => widget.controller;
   AudioPlayer get player => widget.controller.player;
   Music? get music => widget.controller.currentMusic;
-  Playlist get playlist => widget.playlist;
+  Playlist get playlist => widget.controller.currentPlaylist;
   late RepeatMode repeatMode;
   Duration? _duration;
   Duration? _position;

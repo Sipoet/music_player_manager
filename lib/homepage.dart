@@ -29,7 +29,6 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage>
     with AppUpdater, WidgetsBindingObserver {
   late final MusicController musicController;
-  Playlist currentPlaylist = Playlist(name: 'Main');
 
   List<Scheduler> schedulers = [];
   List<Playlist> playlists = [];
@@ -77,11 +76,17 @@ class _MyHomePageState extends State<MyHomePage>
     storage.getString('currentPlaylist').then((data) {
       if (data == null) return;
       setState(() {
-        currentPlaylist = Playlist.fromJson(jsonDecode(data));
-        if (currentPlaylist.currentMusic != null) {
-          musicController.setMusic(currentPlaylist.currentMusic!);
+        setCurrentPlaylist(Playlist.fromJson(jsonDecode(data)));
+        if (musicController.currentPlaylist.currentMusic != null) {
+          musicController.setMusic(
+            musicController.currentPlaylist.currentMusic!,
+          );
         }
-        for (int i = 0; i < currentPlaylist.musics.length; i++) {
+        for (
+          int i = 0;
+          i < musicController.currentPlaylist.musics.length;
+          i++
+        ) {
           focusNodes[i] = FocusNode();
         }
       });
@@ -94,6 +99,10 @@ class _MyHomePageState extends State<MyHomePage>
     musicController = MusicController(player);
     WidgetsBinding.instance.addObserver(this);
     super.initState();
+  }
+
+  void setCurrentPlaylist(Playlist playlist) {
+    musicController.currentPlaylist = playlist;
   }
 
   void addPlaylist() {
@@ -214,8 +223,8 @@ class _MyHomePageState extends State<MyHomePage>
         );
       }
       if (musicController.currentMusic == null &&
-          currentPlaylist.currentMusic != null) {
-        musicController.setMusic(currentPlaylist.currentMusic!);
+          musicController.currentPlaylist.currentMusic != null) {
+        musicController.setMusic(musicController.currentPlaylist.currentMusic!);
       }
     });
   }
@@ -248,7 +257,10 @@ class _MyHomePageState extends State<MyHomePage>
           .map<String>((playlist) => jsonEncode(playlist.asJson()))
           .toList(),
     );
-    storage.setString('currentPlaylist', jsonEncode(currentPlaylist.asJson()));
+    storage.setString(
+      'currentPlaylist',
+      jsonEncode(musicController.currentPlaylist.asJson()),
+    );
     storage.setString('repeatMode', repeatMode.toString());
   }
 
@@ -300,7 +312,7 @@ class _MyHomePageState extends State<MyHomePage>
         musicController.taskScheduler = taskScheduler;
         if (scheduler.playlist != null) {
           setState(() {
-            currentPlaylist = scheduler.playlist!;
+            setCurrentPlaylist(scheduler.playlist!);
           });
         }
         debugPrint('run task schedule');
@@ -338,7 +350,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void focusOnMusicCard(Music music) {
-    int index = currentPlaylist.musics.indexOf(music);
+    int index = musicController.currentPlaylist.musics.indexOf(music);
     debugPrint('index: $index');
     if (index >= 0) {
       _musicScrollController.animateTo(
@@ -405,12 +417,13 @@ class _MyHomePageState extends State<MyHomePage>
                           mainAxisAlignment: .spaceBetween,
                           children: [
                             Text(
-                              'Antrian Musik: ${currentPlaylist.name}',
+                              'Antrian Musik: ${musicController.currentPlaylist.name}',
                               style: labelStyle,
                               textAlign: .center,
                             ),
                             IconButton(
-                              onPressed: () => addMusic(currentPlaylist),
+                              onPressed: () =>
+                                  addMusic(musicController.currentPlaylist),
                               icon: Icon(Icons.add),
                             ),
                           ],
@@ -424,7 +437,8 @@ class _MyHomePageState extends State<MyHomePage>
                           trackVisibility: true,
                           child: ListView.separated(
                             controller: _musicScrollController,
-                            itemCount: currentPlaylist.musics.length,
+                            itemCount:
+                                musicController.currentPlaylist.musics.length,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, index) {
@@ -438,14 +452,20 @@ class _MyHomePageState extends State<MyHomePage>
                                 },
                                 child: MusicCard(
                                   controller: musicController,
-                                  music: currentPlaylist.musics[index],
+                                  music: musicController
+                                      .currentPlaylist
+                                      .musics[index],
                                   onPlayPressed: (music, controller) =>
                                       setState(() {
-                                        currentPlaylist.currentIndex = index;
+                                        musicController
+                                                .currentPlaylist
+                                                .currentIndex =
+                                            index;
                                       }),
                                   onDeletePressed: (music, controller) =>
                                       setState(() {
-                                        currentPlaylist.removeMusicAt(index);
+                                        musicController.currentPlaylist
+                                            .removeMusicAt(index);
                                       }),
                                 ),
                               );
@@ -458,7 +478,6 @@ class _MyHomePageState extends State<MyHomePage>
                         height: 150,
                         child: MusicPlayer(
                           controller: musicController,
-                          playlist: currentPlaylist,
                           repeatMode: repeatMode,
                           onRepeatModeChange: (value) => repeatMode = value,
                           onNextMusic: (music) => focusOnMusicCard(music),
@@ -511,19 +530,22 @@ class _MyHomePageState extends State<MyHomePage>
                                 itemCount: playlists.length,
                                 itemBuilder: (context, index) => PlaylistCard(
                                   playlist: playlists[index],
-                                  isPlaylistPlaying:
-                                      currentPlaylist == playlists[index] &&
-                                      musicController.isPlaying,
+                                  musicController: musicController,
                                   onDeletePressed: (playlist) => setState(() {
                                     playlists.remove(playlist);
                                   }),
                                   onPlayPressed: (playlist) => setState(() {
-                                    currentPlaylist = playlist;
-                                    if (currentPlaylist.musics.isEmpty) {
+                                    setCurrentPlaylist(playlist);
+                                    if (musicController
+                                        .currentPlaylist
+                                        .musics
+                                        .isEmpty) {
                                       return;
                                     }
                                     musicController.play(
-                                      currentPlaylist.currentMusic!,
+                                      musicController
+                                          .currentPlaylist
+                                          .currentMusic!,
                                     );
                                   }),
                                   onEditPressed: (playlist) =>
