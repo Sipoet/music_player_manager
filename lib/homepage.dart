@@ -16,6 +16,7 @@ import 'package:music_player_manager/scheduler_card.dart';
 import 'package:music_player_manager/scheduler_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:music_player_manager/custom_type.dart';
+import 'package:audiotags/audiotags.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -215,17 +216,26 @@ class _MyHomePageState extends State<MyHomePage>
     if (result == null) {
       return;
     }
-    setState(() {
-      for (final file in result.files) {
+
+    for (final file in result.files) {
+      Tag? tag = await AudioTags.read(file.path!);
+      setState(() {
         playlist.addMusic(
-          Music(sourceType: 'deviceFile', path: file.path!, title: file.name),
+          Music(
+            sourceType: 'deviceFile',
+            path: file.path!,
+            title: tag?.title ?? file.name,
+            artist: tag?.albumArtist,
+            album: tag?.album,
+            genre: tag?.genre,
+          ),
         );
-      }
-      if (musicController.currentMusic == null &&
-          musicController.currentPlaylist.currentMusic != null) {
-        musicController.setMusic(musicController.currentPlaylist.currentMusic!);
-      }
-    });
+      });
+    }
+    if (musicController.currentMusic == null &&
+        musicController.currentPlaylist.currentMusic != null) {
+      musicController.setMusic(musicController.currentPlaylist.currentMusic!);
+    }
   }
 
   Future<Scheduler?> showScheduleForm(Scheduler scheduler) {

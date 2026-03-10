@@ -38,7 +38,9 @@ class _MusicPlayerState extends State<MusicPlayer> {
   @override
   void initState() {
     controller.addListener(() {
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     });
     player.getDuration().then(
       (value) => setState(() {
@@ -208,10 +210,15 @@ class _MusicPlayerState extends State<MusicPlayer> {
                     : '',
                 style: const TextStyle(fontSize: 16.0),
               ),
+              SizedBox(width: 20),
               Flexible(
-                child: Text(
-                  controller.currentMusic?.title ?? '',
-                  overflow: .ellipsis,
+                child: Tooltip(
+                  message: controller.currentMusic?.title,
+                  child: Text(
+                    controller.currentMusic?.title ?? '',
+                    overflow: .ellipsis,
+                    maxLines: 2,
+                  ),
                 ),
               ),
             ],

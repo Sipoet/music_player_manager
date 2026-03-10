@@ -27,7 +27,9 @@ class _PlaylistCardState extends State<PlaylistCard> {
   @override
   void initState() {
     widget.musicController.addListener(() {
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     });
     super.initState();
   }

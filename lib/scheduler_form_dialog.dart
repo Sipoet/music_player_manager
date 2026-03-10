@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
 import 'package:music_player_manager/custom_type.dart';
+import 'package:audiotags/audiotags.dart';
 
 class SchedulerFormDialog extends StatefulWidget {
   final Scheduler scheduler;
@@ -171,11 +172,15 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                                 return;
                               }
                               final file = result.files.first;
+                              Tag? tag = await AudioTags.read(file.path!);
                               setState(() {
                                 scheduler.music = Music(
                                   sourceType: 'deviceFile',
                                   path: file.path!,
-                                  title: file.name,
+                                  title: tag?.title ?? file.name,
+                                  artist: tag?.albumArtist,
+                                  album: tag?.album,
+                                  genre: tag?.genre,
                                 );
                               });
                             },
