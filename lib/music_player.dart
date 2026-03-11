@@ -3,7 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:music_player_manager/models/playlist.dart';
 export 'package:music_player_manager/models/playlist.dart';
 import 'dart:async';
-import 'package:music_player_manager/music_controller.dart';
+import 'package:music_player_manager/modules/music_controller.dart';
 
 class MusicPlayer extends StatefulWidget {
   final MusicController controller;
@@ -213,7 +213,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
               SizedBox(width: 20),
               Flexible(
                 child: Tooltip(
-                  message: controller.currentMusic?.title,
+                  message: controller.currentMusic?.title ?? '',
                   child: Text(
                     controller.currentMusic?.title ?? '',
                     overflow: .ellipsis,

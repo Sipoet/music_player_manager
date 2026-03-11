@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/music.dart';
 export 'package:music_player_manager/models/music.dart';
-import 'package:music_player_manager/music_controller.dart';
+import 'package:music_player_manager/modules/music_controller.dart';
 
 class MusicCard extends StatefulWidget {
   final Music music;

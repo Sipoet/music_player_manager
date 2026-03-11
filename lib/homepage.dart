@@ -6,17 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
-import 'package:music_player_manager/app_updater.dart';
+import 'package:music_player_manager/modules/app_updater.dart';
 import 'package:music_player_manager/clock.dart';
 import 'package:music_player_manager/music_card.dart';
-import 'package:music_player_manager/music_controller.dart';
+import 'package:music_player_manager/modules/music_controller.dart';
 import 'package:music_player_manager/music_player.dart';
 import 'package:music_player_manager/playlist_card.dart';
 import 'package:music_player_manager/scheduler_card.dart';
 import 'package:music_player_manager/scheduler_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:music_player_manager/custom_type.dart';
-import 'package:audiotags/audiotags.dart';
+import 'package:music_player_manager/modules/custom_type.dart';
+import 'package:music_player_manager/modules/music_converter.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -28,7 +28,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage>
-    with AppUpdater, WidgetsBindingObserver {
+    with AppUpdater, WidgetsBindingObserver, MusicConverter<MyHomePage> {
   late final MusicController musicController;
 
   List<Scheduler> schedulers = [];
@@ -218,20 +218,12 @@ class _MyHomePageState extends State<MyHomePage>
     }
 
     for (final file in result.files) {
-      Tag? tag = await AudioTags.read(file.path!);
-      setState(() {
-        playlist.addMusic(
-          Music(
-            sourceType: 'deviceFile',
-            path: file.path!,
-            title: tag?.title ?? file.name,
-            artist: tag?.albumArtist,
-            album: tag?.album,
-            genre: tag?.genre,
-          ),
-        );
-      });
+      final music = await convertFileToMusic(file);
+      playlist.addMusic(music);
     }
+    setState(() {
+      playlist.musics;
+    });
     if (musicController.currentMusic == null &&
         musicController.currentPlaylist.currentMusic != null) {
       musicController.setMusic(musicController.currentPlaylist.currentMusic!);

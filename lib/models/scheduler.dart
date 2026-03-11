@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:music_player_manager/custom_type.dart';
+import 'package:music_player_manager/modules/custom_type.dart';
 import 'package:music_player_manager/models/playlist.dart';
 import 'package:uuid/uuid.dart';
 

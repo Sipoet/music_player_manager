@@ -4,8 +4,8 @@ import 'package:music_player_manager/models/scheduler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
-import 'package:music_player_manager/custom_type.dart';
-import 'package:audiotags/audiotags.dart';
+import 'package:music_player_manager/modules/custom_type.dart';
+import 'package:music_player_manager/modules/music_converter.dart';
 
 class SchedulerFormDialog extends StatefulWidget {
   final Scheduler scheduler;
@@ -24,7 +24,8 @@ class SchedulerFormDialog extends StatefulWidget {
   State<SchedulerFormDialog> createState() => _SchedulerFormDialogState();
 }
 
-class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
+class _SchedulerFormDialogState extends State<SchedulerFormDialog>
+    with MusicConverter<SchedulerFormDialog> {
   Scheduler get scheduler => widget.scheduler;
   DateTime datetime = DateTime.now();
   DateTime date = DateTime.now();
@@ -172,16 +173,9 @@ class _SchedulerFormDialogState extends State<SchedulerFormDialog> {
                                 return;
                               }
                               final file = result.files.first;
-                              Tag? tag = await AudioTags.read(file.path!);
+                              final music = await convertFileToMusic(file);
                               setState(() {
-                                scheduler.music = Music(
-                                  sourceType: 'deviceFile',
-                                  path: file.path!,
-                                  title: tag?.title ?? file.name,
-                                  artist: tag?.albumArtist,
-                                  album: tag?.album,
-                                  genre: tag?.genre,
-                                );
+                                scheduler.music = music;
                               });
                             },
                             child: Text('pilih musik'),

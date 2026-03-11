@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:music_player_manager/models/playlist.dart';
 export 'package:music_player_manager/models/playlist.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:music_player_manager/music_controller.dart';
+import 'package:music_player_manager/modules/music_controller.dart';
 
 class PlaylistCard extends StatefulWidget {
   final Playlist playlist;
