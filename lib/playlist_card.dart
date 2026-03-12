@@ -3,6 +3,7 @@ import 'package:music_player_manager/models/playlist.dart';
 export 'package:music_player_manager/models/playlist.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:music_player_manager/modules/music_controller.dart';
+import 'package:music_player_manager/modules/music_converter.dart';
 
 class PlaylistCard extends StatefulWidget {
   final Playlist playlist;
@@ -23,7 +24,7 @@ class PlaylistCard extends StatefulWidget {
   State<PlaylistCard> createState() => _PlaylistCardState();
 }
 
-class _PlaylistCardState extends State<PlaylistCard> {
+class _PlaylistCardState extends State<PlaylistCard> with MusicConverter {
   @override
   void initState() {
     widget.musicController.addListener(() {
@@ -77,9 +78,11 @@ class _PlaylistCardState extends State<PlaylistCard> {
     }
 
     for (final file in result.files) {
-      widget.playlist.addMusic(
-        Music(sourceType: 'deviceFile', path: file.path!, title: file.name),
-      );
+      final music = await convertFileToMusic(file);
+      widget.playlist.addMusic(music);
     }
+    setState(() {
+      widget.playlist;
+    });
   }
 }

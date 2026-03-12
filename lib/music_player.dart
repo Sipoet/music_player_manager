@@ -197,31 +197,34 @@ class _MusicPlayerState extends State<MusicPlayer> {
               ? _position!.inMilliseconds / _duration!.inMilliseconds
               : 0.0,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          child: Row(
-            mainAxisAlignment: .spaceBetween,
-            children: [
-              Text(
-                _position != null
-                    ? '$_positionText / $_durationText'
-                    : _duration != null
-                    ? _durationText
-                    : '',
-                style: const TextStyle(fontSize: 16.0),
-              ),
-              SizedBox(width: 20),
-              Flexible(
-                child: Tooltip(
-                  message: controller.currentMusic?.title ?? '',
-                  child: Text(
-                    controller.currentMusic?.title ?? '',
-                    overflow: .ellipsis,
-                    maxLines: 2,
+        Visibility(
+          visible: music != null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: Row(
+              mainAxisAlignment: .spaceBetween,
+              children: [
+                Text(
+                  _position != null
+                      ? '$_positionText / $_durationText'
+                      : _duration != null
+                      ? _durationText
+                      : '',
+                  style: const TextStyle(fontSize: 16.0),
+                ),
+                SizedBox(width: 20),
+                Flexible(
+                  child: Tooltip(
+                    message: music?.title ?? '',
+                    child: Text(
+                      music?.title ?? '',
+                      overflow: .ellipsis,
+                      maxLines: 2,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],

@@ -22,8 +22,12 @@ class Playlist {
   bool get hasNext => currentIndex + 1 < musics.length;
   bool get hasPrevious => currentIndex > 0;
   Music? get currentMusic {
-    if (currentIndex == -1 && musics.isNotEmpty) {
-      currentIndex = 0;
+    if (currentIndex == -1) {
+      if (musics.isNotEmpty) {
+        currentIndex = 0;
+      } else {
+        return null;
+      }
     }
     return musics.elementAtOrNull(currentIndex);
   }
