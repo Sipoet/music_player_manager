@@ -96,7 +96,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
   }
 
   void toggleRepeat() {
-    final values = RepeatMode.values;
+    final values = MusicRepeatMode.values;
     int index = values.indexOf(controller.repeatMode) + 1;
     if (index >= values.length) {
       index = 0;

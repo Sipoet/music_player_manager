@@ -52,7 +52,7 @@ class Playlist {
     );
   }
 
-  Future<Music?> next(RepeatMode mode) async {
+  Future<Music?> next(MusicRepeatMode mode) async {
     if (mode == .one) {
       return currentMusic;
     }
@@ -100,7 +100,7 @@ class Playlist {
   }
 }
 
-enum RepeatMode {
+enum MusicRepeatMode {
   disabled,
   one,
   all,
@@ -109,7 +109,7 @@ enum RepeatMode {
   @override
   String toString() => super.toString().split('.').last;
 
-  static RepeatMode fromString(String value) {
+  static MusicRepeatMode fromString(String value) {
     switch (value.trim()) {
       case 'disabled':
         return disabled;

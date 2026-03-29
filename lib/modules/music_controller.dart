@@ -13,7 +13,7 @@ class MusicController extends ChangeNotifier {
   bool isPlay(Music music) => music.title == currentMusic?.title && isPlaying;
   Music? _currentMusic;
   Playlist _currentPlaylist = Playlist(name: 'Main');
-  RepeatMode repeatMode = .all;
+  MusicRepeatMode repeatMode = .all;
 
   Music? get currentMusic => _currentMusic;
   TaskScheduler? taskScheduler;

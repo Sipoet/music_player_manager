@@ -60,7 +60,7 @@ class _MyHomePageState extends State<MyHomePage>
         .then(
           (value) => setState(() {
             if (value != null) {
-              musicController.repeatMode = RepeatMode.fromString(value);
+              musicController.repeatMode = MusicRepeatMode.fromString(value);
             }
           }),
         );
